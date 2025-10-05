@@ -69,6 +69,24 @@ const Sidebar = ({ currentPage, setCurrentPage, exportToCSV, onImportClick, them
         <Home size={18} /> Dashboard
       </button>
       <button
+        onClick={() => setCurrentPage('biosignals')}
+        style={itemStyle(currentPage === 'biosignals')}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.transform = 'scale(1.04)';
+          if (! (currentPage === 'biosignals')) {
+            e.currentTarget.style.background = isDarkMode ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)';
+          }
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.transform = 'scale(1)';
+          if (! (currentPage === 'biosignals')) {
+            e.currentTarget.style.background = 'transparent';
+          }
+        }}
+      >
+        <BarChart3 size={18} /> Bio-Signals
+      </button>
+      <button
         onClick={() => setCurrentPage('analytics')}
         style={itemStyle(currentPage === 'analytics')}
         onMouseEnter={(e) => {
@@ -121,6 +139,97 @@ const Sidebar = ({ currentPage, setCurrentPage, exportToCSV, onImportClick, them
         }}
       >
         <Leaf size={18} /> ML Model
+      </button>
+
+      <button
+        onClick={() => setCurrentPage('stress')}
+        style={itemStyle(currentPage === 'stress')}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.transform = 'scale(1.04)';
+          if (! (currentPage === 'stress')) {
+            e.currentTarget.style.background = isDarkMode ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)';
+          }
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.transform = 'scale(1)';
+          if (! (currentPage === 'stress')) {
+            e.currentTarget.style.background = 'transparent';
+          }
+        }}
+      >
+        <BarChart3 size={18} /> Stress Insights
+      </button>
+      <button
+        onClick={() => setCurrentPage('reco')}
+        style={itemStyle(currentPage === 'reco')}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.transform = 'scale(1.04)';
+          if (! (currentPage === 'reco')) {
+            e.currentTarget.style.background = isDarkMode ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)';
+          }
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.transform = 'scale(1)';
+          if (! (currentPage === 'reco')) {
+            e.currentTarget.style.background = 'transparent';
+          }
+        }}
+      >
+        <BarChart3 size={18} /> Recommendations
+      </button>
+      <button
+        onClick={() => setCurrentPage('hardware')}
+        style={itemStyle(currentPage === 'hardware')}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.transform = 'scale(1.04)';
+          if (! (currentPage === 'hardware')) {
+            e.currentTarget.style.background = isDarkMode ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)';
+          }
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.transform = 'scale(1)';
+          if (! (currentPage === 'hardware')) {
+            e.currentTarget.style.background = 'transparent';
+          }
+        }}
+      >
+        <BarChart3 size={18} /> Hardware Status
+      </button>
+      <button
+        onClick={() => setCurrentPage('experiments')}
+        style={itemStyle(currentPage === 'experiments')}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.transform = 'scale(1.04)';
+          if (! (currentPage === 'experiments')) {
+            e.currentTarget.style.background = isDarkMode ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)';
+          }
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.transform = 'scale(1)';
+          if (! (currentPage === 'experiments')) {
+            e.currentTarget.style.background = 'transparent';
+          }
+        }}
+      >
+        <BarChart3 size={18} /> Experiments
+      </button>
+      <button
+        onClick={() => setCurrentPage('settings')}
+        style={itemStyle(currentPage === 'settings')}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.transform = 'scale(1.04)';
+          if (! (currentPage === 'settings')) {
+            e.currentTarget.style.background = isDarkMode ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)';
+          }
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.transform = 'scale(1)';
+          if (! (currentPage === 'settings')) {
+            e.currentTarget.style.background = 'transparent';
+          }
+        }}
+      >
+        <BarChart3 size={18} /> Settings
       </button>
 
       <div style={sectionTitle}>Data</div>

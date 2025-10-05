@@ -6,11 +6,16 @@ import ThemeToggle from './components/ThemeToggle';
 import NavButtons from './components/NavButtons';
 import PlantGrid from './components/PlantGrid';
 import RecentEntriesTable from './components/RecentEntriesTable';
-import VideoPlayer from './components/VideoPlayer';
 import Sidebar from './components/Sidebar';
 import EntryPage from './pages/EntryPage';
 import AnalyticsPage from './pages/AnalyticsPage';
 import MLModelPage from './pages/MLModelPage';
+import BioSignalsPage from './pages/BioSignalsPage';
+import StressInsightsPage from './pages/StressInsightsPage';
+import RecommendationsPage from './pages/RecommendationsPage';
+import HardwareStatusPage from './pages/HardwareStatusPage';
+import ExperimentsPage from './pages/ExperimentsPage';
+import SettingsPage from './pages/SettingsPage';
 
 const HydroMonitor = () => {
   const [currentPage, setCurrentPage] = useState('dashboard');
@@ -24,7 +29,7 @@ const HydroMonitor = () => {
     dissolvedOxy: ''
   });
   const [error, setError] = useState('');
-  const [isVideoMaximized, setIsVideoMaximized] = useState(false);
+  
   const [pastDays, setPastDays] = useState(7);
   const [isDarkMode, setIsDarkMode] = useState(true);
   const [dummyData, setDummyData] = useState({
@@ -696,6 +701,9 @@ const HydroMonitor = () => {
           {currentPage === 'dashboard' && (
             <PlantGrid plantInfo={plantInfo} theme={theme} isDarkMode={isDarkMode} />
           )}
+          {currentPage === 'biosignals' && (
+            <BioSignalsPage styles={styles} theme={theme} isDarkMode={isDarkMode} />
+          )}
           {currentPage === 'analytics' && (
             <AnalyticsPage
               styles={styles}
@@ -716,10 +724,15 @@ const HydroMonitor = () => {
               setFormData={setFormData}
               handleSubmit={handleSubmit}
               handleResetForm={handleResetForm}
-              setCurrentPage={setCurrentPage}
               error={error}
               theme={theme}
             />
+          )}
+          {currentPage === 'stress' && (
+            <StressInsightsPage styles={styles} theme={theme} isDarkMode={isDarkMode} />
+          )}
+          {currentPage === 'reco' && (
+            <RecommendationsPage styles={styles} theme={theme} isDarkMode={isDarkMode} />
           )}
           {currentPage === 'mlModel' && (
             <MLModelPage
@@ -730,16 +743,22 @@ const HydroMonitor = () => {
               setDummyData={setDummyData}
               generateDummyData={generateDummyData}
               dummyPrediction={dummyPrediction}
-              setCurrentPage={setCurrentPage}
             />
+          )}
+          {currentPage === 'hardware' && (
+            <HardwareStatusPage styles={styles} theme={theme} isDarkMode={isDarkMode} />
+          )}
+          {currentPage === 'experiments' && (
+            <ExperimentsPage styles={styles} theme={theme} isDarkMode={isDarkMode} />
+          )}
+          {currentPage === 'settings' && (
+            <SettingsPage styles={styles} theme={theme} isDarkMode={isDarkMode} />
           )}
         </div>
 
         {plantData.length > 0 && (
           <RecentEntriesTable plantData={plantData} theme={theme} />
         )}
-
-        <VideoPlayer isVideoMaximized={isVideoMaximized} setIsVideoMaximized={setIsVideoMaximized} theme={theme} />
       </div>
     </div>
   );
