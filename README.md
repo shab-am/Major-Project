@@ -1,70 +1,131 @@
-# Getting Started with Create React App
+# HydroMonitor - Plant Monitoring System
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+A modern React-based web application for monitoring plant health through real-time sensor data, bioelectrical signals, and AI-powered analytics.
 
-## Available Scripts
+## 🌱 Features
 
-In the project directory, you can run:
+- **Real-time Plant Monitoring** - Track temperature, pH, TDS, humidity, and dissolved oxygen
+- **Bioelectrical Signal Analysis** - Monitor plant electrical signals for stress detection
+- **AI-Powered Analytics** - Machine learning predictions and recommendations
+- **Interactive Dashboard** - Beautiful charts and data visualization
+- **Hardware Integration** - Support for Arduino/ESP32 sensor devices
+- **Dark/Light Theme** - Modern UI with theme switching
+- **Data Export/Import** - CSV data management
 
-### `npm start`
+## 📋 Prerequisites
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+Before running this project, make sure you have the following installed on your computer:
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+### Required Software:
+1. **Node.js** (version 14.0 or higher)
+   - Download from: [https://nodejs.org/](https://nodejs.org/)
+   - This includes npm (Node Package Manager)
 
-### `npm test`
+2. **Git** (optional, for version control)
+   - Download from: [https://git-scm.com/](https://git-scm.com/)
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+3. **Code Editor** (recommended)
+   - Visual Studio Code: [https://code.visualstudio.com/](https://code.visualstudio.com/)
+   - Or any other IDE you prefer
 
-### `npm run build`
+### System Requirements:
+- **Operating System**: Windows 10/11, macOS, or Linux
+- **RAM**: At least 4GB (8GB recommended)
+- **Storage**: 500MB free space
+- **Internet Connection**: Required for downloading dependencies
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+## 🚀 How to Run the Application
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+### Step 1: Download the Project
+1. Download the project folder to your computer
+2. Extract it if it's in a zip file
+3. Note the folder location (e.g., `C:\Users\YourName\Desktop\Major-Project`)
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+### Step 2: Open in Code Editor
+1. Open your code editor (Visual Studio Code recommended)
+2. Click "File" → "Open Folder"
+3. Navigate to and select the project folder
+4. The project files should now be visible in your editor
 
-### `npm run eject`
+### Step 3: Install Dependencies
+1. Open the terminal in your code editor:
+   - **In Visual Studio Code**: Press `Ctrl + `` (backtick) or go to "Terminal" → "New Terminal"
+   - **In other editors**: Use the built-in terminal or open a separate terminal window
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+2. Run this command in the terminal:
+```bash
+npm install
+```
+This will download all required packages (may take 2-5 minutes)
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+### Step 4: Start the Application
+Run this command:
+```bash
+npm start
+```
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+### Step 5: View the Application
+1. Your browser should automatically open to `http://localhost:3000`
+2. If it doesn't open automatically, manually go to: `http://localhost:3000`
+3. You should see the HydroMonitor dashboard
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+## 🔧 Troubleshooting
 
-## Learn More
+### Common Issues:
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+**1. "npm: command not found"**
+- Solution: Install Node.js from [nodejs.org](https://nodejs.org/)
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+**2. "Port 3000 is already in use"**
+- Solution: Close other applications using port 3000, or run:
+  ```bash
+  npm start -- --port 3001
+  ```
 
-### Code Splitting
+**3. "Module not found" errors**
+- Solution: Delete `node_modules` folder and `package-lock.json`, then run:
+  ```bash
+  npm install
+  ```
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
+**4. App doesn't load in browser**
+- Check if terminal shows "Compiled successfully!"
+- Try refreshing the browser page
+- Check if you're using the correct URL: `http://localhost:3000`
 
-### Analyzing the Bundle Size
+### Getting Help:
+- Check the terminal for error messages
+- Make sure all prerequisites are installed
+- Ensure you're in the correct project directory
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
+## 📁 Project Structure
 
-### Making a Progressive Web App
+```
+Major-Project/
+├── src/
+│   ├── components/     # Reusable UI components
+│   ├── pages/         # Main application pages
+│   ├── services/      # API and hardware communication
+│   ├── hooks/         # Custom React hooks
+│   ├── utils/         # Utility functions
+│   └── types/         # Type definitions
+├── public/            # Static assets
+├── package.json       # Project dependencies
+└── README.md          # This file
+```
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
+## 🌐 Hardware Integration
 
-### Advanced Configuration
+For real-time hardware connectivity, see the [HARDWARE_SETUP.md](HARDWARE_SETUP.md) file for detailed instructions on connecting Arduino/ESP32 devices.
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
+## 📞 Support
 
-### Deployment
+If you encounter any issues:
+1. Check this README for common solutions
+2. Verify all prerequisites are installed
+3. Check the terminal for error messages
+4. Ensure you're following the steps correctly
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
+---
 
-### `npm run build` fails to minify
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+**Happy Plant Monitoring! 🌱📊**
