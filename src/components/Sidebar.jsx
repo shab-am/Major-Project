@@ -1,5 +1,6 @@
 import React from 'react';
 import { Home, BarChart3, Leaf, Upload, Download } from 'lucide-react';
+import './Sidebar.css';
 
 const Sidebar = ({ currentPage, setCurrentPage, exportToCSV, onImportClick, theme, isDarkMode }) => {
   const sidebarStyle = {
@@ -8,55 +9,59 @@ const Sidebar = ({ currentPage, setCurrentPage, exportToCSV, onImportClick, them
     left: 0,
     height: '100vh',
     width: 240,
-    background: isDarkMode ? '#161616' : '#ffffff',
+    background: theme.bg,
     borderRight: '1px solid ' + theme.border,
-    padding: 16,
+    padding: 12,
     display: 'flex',
     flexDirection: 'column',
-    gap: 12
+    gap: 8,
+    overflowY: 'auto',
+    scrollbarWidth: 'thin',
+    scrollbarColor: `${theme.accent}40 ${theme.bg}`
   };
 
   const brandStyle = {
     fontWeight: 800,
-    fontSize: '1.25rem',
+    fontSize: '1.1rem',
     color: theme.accent,
-    marginBottom: 16
+    marginBottom: 8
   };
 
-  const sectionTitle = {
-    marginTop: 12,
-    marginBottom: 8,
-    fontSize: 12,
-    letterSpacing: 1,
-    color: theme.textMuted,
-    textTransform: 'uppercase'
-  };
+  // section title removed per request
 
   const itemStyle = (active) => ({
     display: 'flex',
     alignItems: 'center',
     gap: 10,
     padding: '10px 12px',
-    borderRadius: 10,
-    background: active ? theme.accent : 'transparent',
-    color: active ? '#fff' : theme.text,
-    border: '1px solid ' + (active ? theme.accent : theme.border),
+    borderRadius: 12,
+    background: active ? `${theme.accent}30` : 'transparent',
+    color: active ? theme.textMuted : theme.text,
+    border: '1px solid ' + (active ? `${theme.accent}50` : 'transparent'),
     cursor: 'pointer',
     transform: 'scale(1)',
     transition: 'all 0.2s ease'
   });
 
   return (
-    <aside style={sidebarStyle}>
+    <aside 
+      className="sidebar-container"
+      style={{
+        ...sidebarStyle,
+        '--sidebar-bg': theme.bg,
+        '--accent-color': `${theme.accent}40`,
+        '--accent-color-hover': `${theme.accent}60`
+      }}
+    >
       <div style={brandStyle}>HydroMonitor</div>
-      <div style={sectionTitle}>Pages</div>
+      {/* Removed "Pages" label to tighten spacing */}
       <button
         onClick={() => setCurrentPage('dashboard')}
         style={itemStyle(currentPage === 'dashboard')}
         onMouseEnter={(e) => {
           e.currentTarget.style.transform = 'scale(1.04)';
           if (! (currentPage === 'dashboard')) {
-            e.currentTarget.style.background = isDarkMode ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)';
+            e.currentTarget.style.background = `${theme.accent}20`;
           }
         }}
         onMouseLeave={(e) => {
@@ -74,7 +79,7 @@ const Sidebar = ({ currentPage, setCurrentPage, exportToCSV, onImportClick, them
         onMouseEnter={(e) => {
           e.currentTarget.style.transform = 'scale(1.04)';
           if (! (currentPage === 'biosignals')) {
-            e.currentTarget.style.background = isDarkMode ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)';
+            e.currentTarget.style.background = `${theme.accent}20`;
           }
         }}
         onMouseLeave={(e) => {
@@ -92,7 +97,7 @@ const Sidebar = ({ currentPage, setCurrentPage, exportToCSV, onImportClick, them
         onMouseEnter={(e) => {
           e.currentTarget.style.transform = 'scale(1.04)';
           if (! (currentPage === 'analytics')) {
-            e.currentTarget.style.background = isDarkMode ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)';
+            e.currentTarget.style.background = `${theme.accent}20`;
           }
         }}
         onMouseLeave={(e) => {
@@ -110,7 +115,7 @@ const Sidebar = ({ currentPage, setCurrentPage, exportToCSV, onImportClick, them
         onMouseEnter={(e) => {
           e.currentTarget.style.transform = 'scale(1.04)';
           if (! (currentPage === 'entry')) {
-            e.currentTarget.style.background = isDarkMode ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)';
+            e.currentTarget.style.background = `${theme.accent}20`;
           }
         }}
         onMouseLeave={(e) => {
@@ -128,7 +133,7 @@ const Sidebar = ({ currentPage, setCurrentPage, exportToCSV, onImportClick, them
         onMouseEnter={(e) => {
           e.currentTarget.style.transform = 'scale(1.04)';
           if (! (currentPage === 'mlModel')) {
-            e.currentTarget.style.background = isDarkMode ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)';
+            e.currentTarget.style.background = `${theme.accent}20`;
           }
         }}
         onMouseLeave={(e) => {
@@ -147,7 +152,7 @@ const Sidebar = ({ currentPage, setCurrentPage, exportToCSV, onImportClick, them
         onMouseEnter={(e) => {
           e.currentTarget.style.transform = 'scale(1.04)';
           if (! (currentPage === 'stress')) {
-            e.currentTarget.style.background = isDarkMode ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)';
+            e.currentTarget.style.background = `${theme.accent}20`;
           }
         }}
         onMouseLeave={(e) => {
@@ -165,7 +170,7 @@ const Sidebar = ({ currentPage, setCurrentPage, exportToCSV, onImportClick, them
         onMouseEnter={(e) => {
           e.currentTarget.style.transform = 'scale(1.04)';
           if (! (currentPage === 'reco')) {
-            e.currentTarget.style.background = isDarkMode ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)';
+            e.currentTarget.style.background = `${theme.accent}20`;
           }
         }}
         onMouseLeave={(e) => {
@@ -183,7 +188,7 @@ const Sidebar = ({ currentPage, setCurrentPage, exportToCSV, onImportClick, them
         onMouseEnter={(e) => {
           e.currentTarget.style.transform = 'scale(1.04)';
           if (! (currentPage === 'hardware')) {
-            e.currentTarget.style.background = isDarkMode ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)';
+            e.currentTarget.style.background = `${theme.accent}20`;
           }
         }}
         onMouseLeave={(e) => {
@@ -201,7 +206,7 @@ const Sidebar = ({ currentPage, setCurrentPage, exportToCSV, onImportClick, them
         onMouseEnter={(e) => {
           e.currentTarget.style.transform = 'scale(1.04)';
           if (! (currentPage === 'experiments')) {
-            e.currentTarget.style.background = isDarkMode ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)';
+            e.currentTarget.style.background = `${theme.accent}20`;
           }
         }}
         onMouseLeave={(e) => {
@@ -219,7 +224,7 @@ const Sidebar = ({ currentPage, setCurrentPage, exportToCSV, onImportClick, them
         onMouseEnter={(e) => {
           e.currentTarget.style.transform = 'scale(1.04)';
           if (! (currentPage === 'settings')) {
-            e.currentTarget.style.background = isDarkMode ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)';
+            e.currentTarget.style.background = `${theme.accent}20`;
           }
         }}
         onMouseLeave={(e) => {
@@ -231,14 +236,13 @@ const Sidebar = ({ currentPage, setCurrentPage, exportToCSV, onImportClick, them
       >
         <BarChart3 size={18} /> Settings
       </button>
-
-      <div style={sectionTitle}>Data</div>
+      {/* Removed section title "Data" to reduce spacing */}
       <button
         onClick={exportToCSV}
         style={itemStyle(false)}
         onMouseEnter={(e) => {
           e.currentTarget.style.transform = 'scale(1.04)';
-          e.currentTarget.style.background = isDarkMode ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)';
+          e.currentTarget.style.background = isDarkMode ? 'rgba(125, 211, 252, 0.08)' : 'rgba(2, 132, 199, 0.08)';
         }}
         onMouseLeave={(e) => {
           e.currentTarget.style.transform = 'scale(1)';
@@ -252,7 +256,7 @@ const Sidebar = ({ currentPage, setCurrentPage, exportToCSV, onImportClick, them
         style={itemStyle(false)}
         onMouseEnter={(e) => {
           e.currentTarget.style.transform = 'scale(1.04)';
-          e.currentTarget.style.background = isDarkMode ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)';
+          e.currentTarget.style.background = isDarkMode ? 'rgba(125, 211, 252, 0.08)' : 'rgba(2, 132, 199, 0.08)';
         }}
         onMouseLeave={(e) => {
           e.currentTarget.style.transform = 'scale(1)';

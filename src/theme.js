@@ -1,26 +1,28 @@
 export const getTheme = (isDarkMode) =>
   isDarkMode
     ? {
-        bg: '#121212',
-        bgAlt: '#181818',
-        surface: '#1b1b1b',
-        card: '#1f1f1f',
-        text: '#e6e6e6',
-        textMuted: '#b3b3b3',
-        border: 'rgba(255, 255, 255, 0.12)',
-        accent: '#8ab4f8',
-        inputBg: '#252525'
+        // Dark theme from provided palette
+        bg: 'rgb(9, 11, 15)',            // --body
+        bgAlt: 'rgb(9, 11, 15)',
+        surface: 'rgb(21, 26, 34)',      // --buttonclr
+        card: 'rgb(32, 36, 37)',         // --black
+        text: 'rgb(241, 242, 243)',      // --whitesmoke
+        textMuted: 'rgb(201, 203, 205)', // --textfade
+        border: 'rgba(241, 242, 243, 0.14)',
+        accent: '#d3ff5c',               // --greenyellow
+        inputBg: 'rgb(21, 26, 34)'
       }
     : {
-        bg: '#f7f7f7',
+        // Greyscale light theme
+        bg: '#f4f5f7',
         bgAlt: '#ffffff',
         surface: '#ffffff',
         card: '#ffffff',
-        text: '#1f1f1f',
-        textMuted: '#4d4d4d',
-        border: 'rgba(0, 0, 0, 0.12)',
-        accent: '#1a73e8',
-        inputBg: '#f0f0f0'
+        text: '#1f2937',
+        textMuted: '#6b7280',
+        border: 'rgba(17, 24, 39, 0.3)',
+        accent: '#00e5ff',
+        inputBg: '#eef1f5'
       };
 
 

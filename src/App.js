@@ -1,10 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { Calendar, Upload, Download, TrendingUp, Droplets, Home, BarChart3, Leaf, Moon, Sun } from 'lucide-react';
 import { getTheme } from './theme';
-import ThemeToggle from './components/ThemeToggle';
-import NavButtons from './components/NavButtons';
-import PlantGrid from './components/PlantGrid';
 import RecentEntriesTable from './components/RecentEntriesTable';
 import Sidebar from './components/Sidebar';
 import EntryPage from './pages/EntryPage';
@@ -16,6 +11,9 @@ import RecommendationsPage from './pages/RecommendationsPage';
 import HardwareStatusPage from './pages/HardwareStatusPage';
 import ExperimentsPage from './pages/ExperimentsPage';
 import SettingsPage from './pages/SettingsPage';
+import Dashboard from './components/Dashboard';
+import RecentPlantsPopup from './components/RecentPlantsPopup';
+import './components/Sidebar.css';
 
 const HydroMonitor = () => {
   const [currentPage, setCurrentPage] = useState('dashboard');
@@ -32,6 +30,7 @@ const HydroMonitor = () => {
   
   const [pastDays, setPastDays] = useState(7);
   const [isDarkMode, setIsDarkMode] = useState(true);
+  const [showRecentPlantsPopup, setShowRecentPlantsPopup] = useState(false);
   const [dummyData, setDummyData] = useState({
     colors: [
       { hex: '#4CAF50', health: 'Healthy' },
@@ -48,7 +47,7 @@ const HydroMonitor = () => {
   const plantInfo = {
     'Bok choy': {
       image: '/assets/water-spinach.png',
-      color: isDarkMode ? 'linear-gradient(135deg, #1b1b1b 0%, #2a2a2a 100%)' : 'linear-gradient(135deg, #ffffff 0%, #f5f5f5 100%)',
+      color: isDarkMode ? '#1f2937' : 'rgba(0, 0, 0, 0.04)',
       description: 'Nutrient-rich leafy green',
       optimalPH: '5.5-6.5',
       optimalTDS: '900-1200',
@@ -58,7 +57,7 @@ const HydroMonitor = () => {
     },
     'Chili': {
       image: '/assets/chili-plant.png',
-      color: isDarkMode ? 'linear-gradient(135deg, #1b1b1b 0%, #2a2a2a 100%)' : 'linear-gradient(135deg, #ffffff 0%, #f5f5f5 100%)',
+      color: isDarkMode ? '#23262b' : 'rgba(17, 24, 39, 0.05)',
       description: 'Spicy pepper variety',
       optimalPH: '6.0-6.8',
       optimalTDS: '1000-1750',
@@ -68,7 +67,7 @@ const HydroMonitor = () => {
     },
     'Purple basil': {
       image: '/assets/purple-basil.png',
-      color: isDarkMode ? 'linear-gradient(135deg, #1b1b1b 0%, #2a2a2a 100%)' : 'linear-gradient(135deg, #ffffff 0%, #f5f5f5 100%)',
+      color: isDarkMode ? '#1e1f24' : 'rgba(31, 41, 55, 0.05)',
       description: 'Aromatic purple-leafed herb',
       optimalPH: '5.5-6.5',
       optimalTDS: '500-800',
@@ -78,7 +77,7 @@ const HydroMonitor = () => {
     },
     'Thai basil': {
       image: '/assets/thai-basil.png',
-      color: isDarkMode ? 'linear-gradient(135deg, #1b1b1b 0%, #2a2a2a 100%)' : 'linear-gradient(135deg, #ffffff 0%, #f5f5f5 100%)',
+      color: isDarkMode ? '#242428' : 'rgba(55, 65, 81, 0.05)',
       description: 'Sweet and spicy Asian herb',
       optimalPH: '6.0-7.0',
       optimalTDS: '600-900',
@@ -88,12 +87,22 @@ const HydroMonitor = () => {
     },
     'Lemon basil': {
       image: '/assets/lemon-basil.png',
-      color: isDarkMode ? 'linear-gradient(135deg, #1b1b1b 0%, #2a2a2a 100%)' : 'linear-gradient(135deg, #ffffff 0%, #f5f5f5 100%)',
+      color: isDarkMode ? '#26262a' : 'rgba(75, 85, 99, 0.05)',
       description: 'Citrusy aromatic herb',
       optimalPH: '5.8-6.8',
       optimalTDS: '500-750',
       optimalTemperature: '20-26',
       optimalHumidity: '50-70',
+      optimalDissolvedOxy: '5-8'
+    },
+    'Brinjal': {
+      image: '/assets/brinjal.png',
+      color: isDarkMode ? '#1b1b1f' : 'rgba(107, 114, 128, 0.06)',
+      description: 'Eggplant variety rich in fiber and antioxidants',
+      optimalPH: '5.5-6.6',
+      optimalTDS: '1400-1750',
+      optimalTemperature: '20-30',
+      optimalHumidity: '60-70',
       optimalDissolvedOxy: '5-8'
     }
   };
@@ -114,7 +123,7 @@ const HydroMonitor = () => {
     container: {
       maxWidth: '1200px',
       margin: '0 auto',
-      padding: '24px 16px',
+      padding: '4px 12px',
     },
     card: {
       background: theme.card,
@@ -127,12 +136,14 @@ const HydroMonitor = () => {
       padding: '32px',
     },
     title: {
-      fontSize: '3.75rem',
-      fontWeight: 'bold',
+      fontSize: '2.75rem',
+      fontWeight: 800,
       marginBottom: '8px',
+      lineHeight: 1.1,
       textAlign: 'center',
       color: theme.accent,
       display: 'inline-block',
+      textShadow: isDarkMode ? '0 0 8px rgba(211, 255, 92, 0.45)' : '0 0 6px rgba(0, 229, 255, 0.45)'
     },
     subtitle: {
       fontSize: '1.25rem',
@@ -217,7 +228,7 @@ const HydroMonitor = () => {
     plantName: {
       fontSize: '1.5rem',
       fontWeight: 'bold',
-      color: theme.text,
+      color: theme.accent,
       marginBottom: '8px',
     },
     plantDescription: {
@@ -225,7 +236,7 @@ const HydroMonitor = () => {
       marginBottom: '16px',
     },
     plantStats: {
-      background: isDarkMode ? 'rgba(255, 255, 255, 0.06)' : '#f5f5f5',
+      background: isDarkMode ? 'rgba(255, 255, 255, 0.06)' : '#f2f2f3',
       borderRadius: '12px',
       padding: '16px',
       marginBottom: '16px',
@@ -294,31 +305,35 @@ const HydroMonitor = () => {
       borderBottom: '1px solid ' + theme.border,
     },
     chartContainer: {
-      background: isDarkMode ? 'rgba(255, 255, 255, 0.04)' : '#fafafa',
+      background: isDarkMode ? 'rgba(255, 255, 255, 0.04)' : '#f5f6f8',
       borderRadius: '16px',
       padding: '24px',
     },
     chartTitle: {
       fontSize: '1.5rem',
       fontWeight: 'bold',
-      color: theme.text,
+      color: theme.accent,
       marginBottom: '24px',
       display: 'flex',
       alignItems: 'center',
       gap: '12px',
+      textShadow: isDarkMode ? '0 0 4px rgba(211, 255, 92, 0.35)' : '0 0 3px rgba(0, 229, 255, 0.35)'
     },
     pageTitle: {
       fontSize: '2.5rem',
       fontWeight: 'bold',
-      color: theme.text,
+      color: theme.accent,
       display: 'flex',
       alignItems: 'center',
       gap: '16px',
+      marginTop: '8px',
+      marginBottom: '8px',
+      textShadow: isDarkMode ? '0 0 6px rgba(211, 255, 92, 0.4)' : '0 0 5px rgba(0, 229, 255, 0.45)'
     },
     submitButton: {
       width: '100%',
-      background: theme.accent,
-      color: '#ffffff',
+      background: theme.surface,
+      color: theme.textMuted,
       padding: '16px',
       borderRadius: '12px',
       fontSize: '1.125rem',
@@ -403,7 +418,7 @@ const HydroMonitor = () => {
       width: '100%',
       height: '100%',
       objectFit: 'cover',
-    },
+    }
   };
 
   useEffect(() => {
@@ -619,66 +634,8 @@ const HydroMonitor = () => {
     return { colors };
   };
 
-
-  if (false && currentPage === 'entry') {
     return (
       <div style={styles.pageContainer}>
-        <ThemeToggle isDarkMode={isDarkMode} onToggle={() => setIsDarkMode(!isDarkMode)} theme={theme} />
-        <EntryPage
-          styles={styles}
-          formData={formData}
-          setFormData={setFormData}
-          handleSubmit={handleSubmit}
-          handleResetForm={handleResetForm}
-          setCurrentPage={setCurrentPage}
-          error={error}
-          theme={theme}
-        />
-      </div>
-    );
-  }
-
-  if (false && currentPage === 'analytics') {
-    return (
-      <div style={styles.pageContainer}>
-        <ThemeToggle isDarkMode={isDarkMode} onToggle={() => setIsDarkMode(!isDarkMode)} theme={theme} />
-        <AnalyticsPage
-          styles={styles}
-          getChartData={getChartData}
-          getTrendAnalysis={getTrendAnalysis}
-          pastDays={pastDays}
-          setPastDays={setPastDays}
-          isDarkMode={isDarkMode}
-          theme={theme}
-          plantInfo={plantInfo}
-          plantData={plantData}
-        />
-      </div>
-    );
-  }
-
-  if (false && currentPage === 'mlModel') {
-    return (
-      <div style={styles.pageContainer}>
-        <ThemeToggle isDarkMode={isDarkMode} onToggle={() => setIsDarkMode(!isDarkMode)} theme={theme} />
-        <MLModelPage
-          styles={styles}
-          theme={theme}
-          isDarkMode={isDarkMode}
-          dummyData={dummyData}
-          setDummyData={setDummyData}
-          generateDummyData={generateDummyData}
-          dummyPrediction={dummyPrediction}
-          setCurrentPage={setCurrentPage}
-        />
-      </div>
-    );
-  }
-
-
-  return (
-    <div style={styles.pageContainer}>
-      <ThemeToggle isDarkMode={isDarkMode} onToggle={() => setIsDarkMode(!isDarkMode)} theme={theme} />
       <Sidebar
         currentPage={currentPage}
         setCurrentPage={setCurrentPage}
@@ -687,22 +644,37 @@ const HydroMonitor = () => {
         theme={theme}
         isDarkMode={isDarkMode}
       />
-      <div ref={mainContentRef} style={{ ...styles.container, marginLeft: 280, paddingLeft: 16 }}>
-        <div style={{ textAlign: 'center', marginBottom: '48px' }}>
-          <h1 style={styles.title}>HydroMonitor</h1>
-          <p style={styles.subtitle}>Advanced Hydroponic Plant Monitoring System</p>
-        </div>
+      <div 
+        ref={mainContentRef} 
+        className="main-content"
+              style={{
+          ...styles.container, 
+          marginLeft: 280, 
+          padding: '4px 12px',
+          '--main-bg': theme.bg,
+          '--accent-color': `${theme.accent}40`,
+          '--accent-color-hover': `${theme.accent}60`
+        }}
+      >
 
-        <div style={styles.card}>
-          {error && <div style={styles.error}>{error}</div>}
-          {isLoading && <div style={{ ...styles.error, color: isDarkMode ? 'white' : '#2a6f6f' }}>Loading...</div>}
-          <input ref={csvInputRef} type="file" accept=".csv" onChange={importFromCSV} style={{ display: 'none' }} />
-
-          {currentPage === 'dashboard' && (
-            <PlantGrid plantInfo={plantInfo} theme={theme} isDarkMode={isDarkMode} />
-          )}
+        {currentPage === 'dashboard' ? (
+          <Dashboard 
+            theme={theme} 
+            isDarkMode={isDarkMode} 
+            plantData={plantData} 
+            onViewAllPlants={() => setShowRecentPlantsPopup(true)}
+            onToggleTheme={() => setIsDarkMode(!isDarkMode)}
+                  />
+                ) : (
+                <div>
+            <input ref={csvInputRef} type="file" accept=".csv" onChange={importFromCSV} style={{ display: 'none' }} />
           {currentPage === 'biosignals' && (
-            <BioSignalsPage styles={styles} theme={theme} isDarkMode={isDarkMode} />
+            <BioSignalsPage 
+              styles={styles} 
+              theme={theme} 
+              isDarkMode={isDarkMode}
+              onToggleTheme={() => setIsDarkMode(!isDarkMode)}
+            />
           )}
           {currentPage === 'analytics' && (
             <AnalyticsPage
@@ -715,6 +687,7 @@ const HydroMonitor = () => {
               theme={theme}
               plantInfo={plantInfo}
               plantData={plantData}
+              onToggleTheme={() => setIsDarkMode(!isDarkMode)}
             />
           )}
           {currentPage === 'entry' && (
@@ -726,40 +699,53 @@ const HydroMonitor = () => {
               handleResetForm={handleResetForm}
               error={error}
               theme={theme}
-            />
-          )}
-          {currentPage === 'stress' && (
-            <StressInsightsPage styles={styles} theme={theme} isDarkMode={isDarkMode} />
-          )}
-          {currentPage === 'reco' && (
-            <RecommendationsPage styles={styles} theme={theme} isDarkMode={isDarkMode} />
-          )}
-          {currentPage === 'mlModel' && (
-            <MLModelPage
-              styles={styles}
-              theme={theme}
               isDarkMode={isDarkMode}
-              dummyData={dummyData}
-              setDummyData={setDummyData}
-              generateDummyData={generateDummyData}
-              dummyPrediction={dummyPrediction}
+              onToggleTheme={() => setIsDarkMode(!isDarkMode)}
             />
           )}
-          {currentPage === 'hardware' && (
-            <HardwareStatusPage styles={styles} theme={theme} isDarkMode={isDarkMode} />
-          )}
-          {currentPage === 'experiments' && (
-            <ExperimentsPage styles={styles} theme={theme} isDarkMode={isDarkMode} />
-          )}
-          {currentPage === 'settings' && (
-            <SettingsPage styles={styles} theme={theme} isDarkMode={isDarkMode} />
-          )}
-        </div>
+              {currentPage === 'stress' && (
+                <StressInsightsPage styles={styles} theme={theme} isDarkMode={isDarkMode} onToggleTheme={() => setIsDarkMode(!isDarkMode)} />
+              )}
+              {currentPage === 'reco' && (
+                <RecommendationsPage styles={styles} theme={theme} isDarkMode={isDarkMode} onToggleTheme={() => setIsDarkMode(!isDarkMode)} />
+              )}
+              {currentPage === 'mlModel' && (
+                <MLModelPage
+                  styles={styles}
+                  theme={theme}
+                  isDarkMode={isDarkMode}
+                  dummyData={dummyData}
+                  setDummyData={setDummyData}
+                  generateDummyData={generateDummyData}
+                  dummyPrediction={dummyPrediction}
+                  onToggleTheme={() => setIsDarkMode(!isDarkMode)}
+                />
+              )}
+              {currentPage === 'hardware' && (
+                <HardwareStatusPage styles={styles} theme={theme} isDarkMode={isDarkMode} onToggleTheme={() => setIsDarkMode(!isDarkMode)} />
+              )}
+              {currentPage === 'experiments' && (
+                <ExperimentsPage styles={styles} theme={theme} isDarkMode={isDarkMode} onToggleTheme={() => setIsDarkMode(!isDarkMode)} />
+              )}
+              {currentPage === 'settings' && (
+                <SettingsPage styles={styles} theme={theme} isDarkMode={isDarkMode} onToggleTheme={() => setIsDarkMode(!isDarkMode)} />
+              )}
+              </div>
+            )}
 
-        {plantData.length > 0 && (
+        {plantData.length > 0 && currentPage !== 'dashboard' && (
           <RecentEntriesTable plantData={plantData} theme={theme} />
         )}
-      </div>
+                    </div>
+      
+      {/* Recent Plants Popup */}
+      <RecentPlantsPopup 
+        isOpen={showRecentPlantsPopup}
+        onClose={() => setShowRecentPlantsPopup(false)}
+        theme={theme}
+        isDarkMode={isDarkMode}
+        plantData={plantData}
+      />
     </div>
   );
 };
