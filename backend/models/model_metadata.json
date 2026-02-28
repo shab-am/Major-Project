@@ -1,0 +1,40 @@
+{
+  "mean_accuracy": 0.9383333333333332,
+  "std_accuracy": 0.01996524758451823,
+  "mean_f1_score": 0.9380047921752152,
+  "std_f1_score": 0.020235013674703473,
+  "num_features": 18,
+  "num_classes": 3,
+  "classes": [
+    "Healthy",
+    "High Stress",
+    "Moderate Stress"
+  ],
+  "feature_names": [
+    "Plant_ID",
+    "Soil_Moisture",
+    "Ambient_Temperature",
+    "Soil_Temperature",
+    "Humidity",
+    "Light_Intensity",
+    "Soil_pH",
+    "Nitrogen_Level",
+    "Phosphorus_Level",
+    "Potassium_Level",
+    "Chlorophyll_Content",
+    "Electrochemical_Signal",
+    "Timestamp_hour",
+    "Timestamp_day",
+    "Timestamp_month",
+    "Timestamp_weekday",
+    "Timestamp_hour_sin",
+    "Timestamp_hour_cos"
+  ],
+  "dataset_shape": [
+    1200,
+    14
+  ],
+  "k_folds": 5,
+  "epochs": 200,
+  "device": "cpu"
+}

@@ -2,14 +2,11 @@ import React, { useState, useEffect, useRef } from 'react';
 import { getTheme } from './theme';
 import RecentEntriesTable from './components/RecentEntriesTable';
 import Sidebar from './components/Sidebar';
-import EntryPage from './pages/EntryPage';
 import AnalyticsPage from './pages/AnalyticsPage';
 import MLModelPage from './pages/MLModelPage';
 import BioSignalsPage from './pages/BioSignalsPage';
 import StressInsightsPage from './pages/StressInsightsPage';
-import RecommendationsPage from './pages/RecommendationsPage';
-import HardwareStatusPage from './pages/HardwareStatusPage';
-import ExperimentsPage from './pages/ExperimentsPage';
+import HardwareInterfacePage from './pages/HardwareInterfacePage';
 import SettingsPage from './pages/SettingsPage';
 import Dashboard from './components/Dashboard';
 import RecentPlantsPopup from './components/RecentPlantsPopup';
@@ -18,26 +15,10 @@ import './components/Sidebar.css';
 const HydroMonitor = () => {
   const [currentPage, setCurrentPage] = useState('dashboard');
   const [plantData, setPlantData] = useState([]);
-  const [formData, setFormData] = useState({
-    date: new Date().toISOString().split('T')[0],
-    ph: '',
-    tds: '',
-    temperature: '',
-    humidity: '',
-    dissolvedOxy: ''
-  });
-  const [error, setError] = useState('');
   
   const [pastDays, setPastDays] = useState(7);
   const [isDarkMode, setIsDarkMode] = useState(true);
   const [showRecentPlantsPopup, setShowRecentPlantsPopup] = useState(false);
-  const [dummyData, setDummyData] = useState({
-    colors: [
-      { hex: '#4CAF50', health: 'Healthy' },
-      { hex: '#FF9800', health: 'Moderate' },
-      { hex: '#F44336', health: 'Unhealthy' }
-    ]
-  });
 
   const theme = getTheme(isDarkMode);
 
@@ -106,8 +87,6 @@ const HydroMonitor = () => {
       optimalDissolvedOxy: '5-8'
     }
   };
-
-  const isImagePath = (image) => typeof image === 'string' && /\.(jpg|jpeg|png|gif|webp)$/i.test(image);
 
   const styles = {
     pageContainer: {
@@ -421,16 +400,35 @@ const HydroMonitor = () => {
     }
   };
 
+  // Load plant data from localStorage on mount
   useEffect(() => {
-    setIsLoading(true);
-    fetch('http://localhost:5000/api/readings')
-      .then(response => response.json())
-      .then(data => {
-        setPlantData(data);
-      })
-      .catch(error => setError('Failed to fetch data from server.'))
-      .finally(() => setIsLoading(false));
+    try {
+      const savedData = localStorage.getItem('plantData');
+      if (savedData) {
+        const parsed = JSON.parse(savedData);
+        setPlantData(Array.isArray(parsed) ? parsed : []);
+        console.log('Loaded', parsed.length, 'plant entries from localStorage');
+      } else {
+        console.log('No saved plant data found');
+        setPlantData([]);
+      }
+    } catch (error) {
+      console.error('Error loading plant data from localStorage:', error);
+      setPlantData([]);
+    }
   }, []);
+
+  // Save plant data to localStorage whenever it changes
+  useEffect(() => {
+    if (plantData.length > 0) {
+      try {
+        localStorage.setItem('plantData', JSON.stringify(plantData));
+        console.log('Saved', plantData.length, 'plant entries to localStorage');
+      } catch (error) {
+        console.error('Error saving plant data to localStorage:', error);
+      }
+    }
+  }, [plantData]);
 
   useEffect(() => {
     try {
@@ -441,70 +439,6 @@ const HydroMonitor = () => {
     } catch (_) {}
   }, [currentPage]);
 
-  const [isLoading, setIsLoading] = useState(false);
-
-  const handleResetForm = () => {
-    setFormData({
-      date: new Date().toISOString().split('T')[0],
-      ph: '',
-      tds: '',
-      temperature: '',
-      humidity: '',
-      dissolvedOxy: ''
-    });
-    setError('');
-  };
-
-  const handleSubmit = () => {
-    if (!formData.date || !formData.ph || !formData.tds || !formData.temperature || !formData.humidity || !formData.dissolvedOxy) {
-      setError('Please fill in all required fields (Date, pH, TDS, Temperature, Humidity, Dissolved Oxygen).');
-      return;
-    }
-    if (isNaN(formData.ph) || formData.ph < 0 || formData.ph > 14) {
-      setError('pH must be a number between 0 and 14.');
-      return;
-    }
-    if (isNaN(formData.tds) || formData.tds < 0) {
-      setError('TDS must be a positive number.');
-      return;
-    }
-    if (isNaN(formData.temperature)) {
-      setError('Temperature must be a number.');
-      return;
-    }
-    if (isNaN(formData.humidity) || formData.humidity < 0 || formData.humidity > 100) {
-      setError('Humidity must be a number between 0 and 100.');
-      return;
-    }
-    if (isNaN(formData.dissolvedOxy) || formData.dissolvedOxy < 0) {
-      setError('Dissolved Oxygen must be a positive number.');
-      return;
-    }
-
-    const newEntry = {
-      id: Date.now(),
-      timestamp: new Date().toISOString(),
-      temperature: parseFloat(formData.temperature),
-      ph: parseFloat(formData.ph),
-      tds: parseFloat(formData.tds),
-      humidity: parseFloat(formData.humidity),
-      dissolvedOxy: parseFloat(formData.dissolvedOxy),
-    };
-
-    fetch('http://localhost:5000/api/readings', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(newEntry),
-    })
-      .then((response) => response.json())
-      .then(() => {
-        setPlantData((prev) => [...prev, newEntry]);
-        handleResetForm();
-        setCurrentPage('dashboard');
-        setError('');
-      })
-      .catch((error) => setError('Failed to save entry.'));
-  };
 
   // Update exportToCSV to include new columns
   const exportToCSV = () => {
@@ -532,12 +466,14 @@ const HydroMonitor = () => {
         const csv = event.target.result;
         const lines = csv.split('\n').filter(line => line.trim());
         if (lines.length < 2) {
-          setError('Invalid CSV file: No data found.');
+          console.error('Invalid CSV file: No data found.');
+          alert('Invalid CSV file: No data found.');
           return;
         }
         const headers = lines[0].split(',').map(header => header.trim());
         if (!headers.includes('id') || !headers.includes('timestamp') || !headers.includes('temperature') || !headers.includes('ph') || !headers.includes('tds')) {
-          setError('Invalid CSV file: Required headers (id, timestamp, temperature, ph, tds) missing.');
+          console.error('Invalid CSV file: Required headers (id, timestamp, temperature, ph, tds) missing.');
+          alert('Invalid CSV file: Required headers (id, timestamp, temperature, ph, tds) missing.');
           return;
         }
 
@@ -552,20 +488,23 @@ const HydroMonitor = () => {
           };
         });
 
-        fetch('http://localhost:5000/api/readings', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(importedData)
-        })
-          .then(response => response.json())
-          .then(() => {
-            setPlantData(prev => [...prev, ...importedData]);
-            setError('CSV imported successfully!');
-            if (csvInputRef.current) csvInputRef.current.value = '';
-          })
-          .catch(error => setError('Error importing CSV: Please ensure the file is valid.'));
+        // Save imported data to localStorage
+        try {
+          setPlantData(prev => {
+            const updated = [...prev, ...importedData];
+            localStorage.setItem('plantData', JSON.stringify(updated));
+            return updated;
+          });
+          alert('CSV imported successfully!');
+          if (csvInputRef.current) csvInputRef.current.value = '';
+          console.log('Imported', importedData.length, 'entries from CSV');
+        } catch (error) {
+          console.error('Error importing CSV:', error);
+          alert('Error importing CSV: Please ensure the file is valid.');
+        }
       } catch (err) {
-        setError('Error importing CSV: Please ensure the file is valid.');
+        console.error('Error importing CSV:', err);
+        alert('Error importing CSV: Please ensure the file is valid.');
       }
     };
     reader.readAsText(file);
@@ -618,20 +557,6 @@ const HydroMonitor = () => {
     });
 
     return { trend, slope: slope.toFixed(2), rangeStatus };
-  };
-
-  const dummyPrediction = () => {
-    const plants = ['Bok choy', 'Chili', 'Purple basil', 'Thai basil', 'Lemon basil'];
-    return plants[Math.floor(Math.random() * plants.length)];
-  };
-
-  const generateDummyData = () => {
-    const colors = [
-      { hex: `#${Math.floor(Math.random()*16777215).toString(16)}`, health: ['Healthy', 'Moderate', 'Unhealthy'][Math.floor(Math.random() * 3)] },
-      { hex: `#${Math.floor(Math.random()*16777215).toString(16)}`, health: ['Healthy', 'Moderate', 'Unhealthy'][Math.floor(Math.random() * 3)] },
-      { hex: `#${Math.floor(Math.random()*16777215).toString(16)}`, health: ['Healthy', 'Moderate', 'Unhealthy'][Math.floor(Math.random() * 3)] }
-    ];
-    return { colors };
   };
 
     return (
@@ -690,42 +615,26 @@ const HydroMonitor = () => {
               onToggleTheme={() => setIsDarkMode(!isDarkMode)}
             />
           )}
-          {currentPage === 'entry' && (
-            <EntryPage
-              styles={styles}
-              formData={formData}
-              setFormData={setFormData}
-              handleSubmit={handleSubmit}
-              handleResetForm={handleResetForm}
-              error={error}
-              theme={theme}
-              isDarkMode={isDarkMode}
-              onToggleTheme={() => setIsDarkMode(!isDarkMode)}
-            />
-          )}
               {currentPage === 'stress' && (
-                <StressInsightsPage styles={styles} theme={theme} isDarkMode={isDarkMode} onToggleTheme={() => setIsDarkMode(!isDarkMode)} />
-              )}
-              {currentPage === 'reco' && (
-                <RecommendationsPage styles={styles} theme={theme} isDarkMode={isDarkMode} onToggleTheme={() => setIsDarkMode(!isDarkMode)} />
+                <StressInsightsPage 
+                  styles={styles} 
+                  theme={theme} 
+                  isDarkMode={isDarkMode} 
+                  plantData={plantData}
+                  onToggleTheme={() => setIsDarkMode(!isDarkMode)} 
+                />
               )}
               {currentPage === 'mlModel' && (
                 <MLModelPage
                   styles={styles}
                   theme={theme}
                   isDarkMode={isDarkMode}
-                  dummyData={dummyData}
-                  setDummyData={setDummyData}
-                  generateDummyData={generateDummyData}
-                  dummyPrediction={dummyPrediction}
+                  plantData={plantData}
                   onToggleTheme={() => setIsDarkMode(!isDarkMode)}
                 />
               )}
               {currentPage === 'hardware' && (
-                <HardwareStatusPage styles={styles} theme={theme} isDarkMode={isDarkMode} onToggleTheme={() => setIsDarkMode(!isDarkMode)} />
-              )}
-              {currentPage === 'experiments' && (
-                <ExperimentsPage styles={styles} theme={theme} isDarkMode={isDarkMode} onToggleTheme={() => setIsDarkMode(!isDarkMode)} />
+                <HardwareInterfacePage styles={styles} theme={theme} isDarkMode={isDarkMode} onToggleTheme={() => setIsDarkMode(!isDarkMode)} />
               )}
               {currentPage === 'settings' && (
                 <SettingsPage styles={styles} theme={theme} isDarkMode={isDarkMode} onToggleTheme={() => setIsDarkMode(!isDarkMode)} />
@@ -733,9 +642,6 @@ const HydroMonitor = () => {
               </div>
             )}
 
-        {plantData.length > 0 && currentPage !== 'dashboard' && (
-          <RecentEntriesTable plantData={plantData} theme={theme} />
-        )}
                     </div>
       
       {/* Recent Plants Popup */}

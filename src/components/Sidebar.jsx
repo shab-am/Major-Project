@@ -1,5 +1,5 @@
 import React from 'react';
-import { Home, BarChart3, Leaf, Upload, Download } from 'lucide-react';
+import { Home, BarChart3, Leaf, Upload, Download, Code } from 'lucide-react';
 import './Sidebar.css';
 
 const Sidebar = ({ currentPage, setCurrentPage, exportToCSV, onImportClick, theme, isDarkMode }) => {
@@ -110,24 +110,6 @@ const Sidebar = ({ currentPage, setCurrentPage, exportToCSV, onImportClick, them
         <BarChart3 size={18} /> Analytics
       </button>
       <button
-        onClick={() => setCurrentPage('entry')}
-        style={itemStyle(currentPage === 'entry')}
-        onMouseEnter={(e) => {
-          e.currentTarget.style.transform = 'scale(1.04)';
-          if (! (currentPage === 'entry')) {
-            e.currentTarget.style.background = `${theme.accent}20`;
-          }
-        }}
-        onMouseLeave={(e) => {
-          e.currentTarget.style.transform = 'scale(1)';
-          if (! (currentPage === 'entry')) {
-            e.currentTarget.style.background = 'transparent';
-          }
-        }}
-      >
-        <Leaf size={18} /> Add Entry
-      </button>
-      <button
         onClick={() => setCurrentPage('mlModel')}
         style={itemStyle(currentPage === 'mlModel')}
         onMouseEnter={(e) => {
@@ -145,7 +127,6 @@ const Sidebar = ({ currentPage, setCurrentPage, exportToCSV, onImportClick, them
       >
         <Leaf size={18} /> ML Model
       </button>
-
       <button
         onClick={() => setCurrentPage('stress')}
         style={itemStyle(currentPage === 'stress')}
@@ -162,25 +143,7 @@ const Sidebar = ({ currentPage, setCurrentPage, exportToCSV, onImportClick, them
           }
         }}
       >
-        <BarChart3 size={18} /> Stress Insights
-      </button>
-      <button
-        onClick={() => setCurrentPage('reco')}
-        style={itemStyle(currentPage === 'reco')}
-        onMouseEnter={(e) => {
-          e.currentTarget.style.transform = 'scale(1.04)';
-          if (! (currentPage === 'reco')) {
-            e.currentTarget.style.background = `${theme.accent}20`;
-          }
-        }}
-        onMouseLeave={(e) => {
-          e.currentTarget.style.transform = 'scale(1)';
-          if (! (currentPage === 'reco')) {
-            e.currentTarget.style.background = 'transparent';
-          }
-        }}
-      >
-        <BarChart3 size={18} /> Recommendations
+        <BarChart3 size={18} /> Stress Insights & Alerts
       </button>
       <button
         onClick={() => setCurrentPage('hardware')}
@@ -198,25 +161,7 @@ const Sidebar = ({ currentPage, setCurrentPage, exportToCSV, onImportClick, them
           }
         }}
       >
-        <BarChart3 size={18} /> Hardware Status
-      </button>
-      <button
-        onClick={() => setCurrentPage('experiments')}
-        style={itemStyle(currentPage === 'experiments')}
-        onMouseEnter={(e) => {
-          e.currentTarget.style.transform = 'scale(1.04)';
-          if (! (currentPage === 'experiments')) {
-            e.currentTarget.style.background = `${theme.accent}20`;
-          }
-        }}
-        onMouseLeave={(e) => {
-          e.currentTarget.style.transform = 'scale(1)';
-          if (! (currentPage === 'experiments')) {
-            e.currentTarget.style.background = 'transparent';
-          }
-        }}
-      >
-        <BarChart3 size={18} /> Experiments
+        <BarChart3 size={18} /> Hardware Interface
       </button>
       <button
         onClick={() => setCurrentPage('settings')}

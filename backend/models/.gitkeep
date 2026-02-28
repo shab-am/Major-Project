@@ -1,0 +1,8 @@
+# Trained models will be saved here
+# This directory contains:
+# - plant_health_model.pt (PyTorch model)
+# - scaler.pkl (feature scaler)
+# - label_encoder.pkl (label encoder)
+# - model_metadata.json (model information)
+
+

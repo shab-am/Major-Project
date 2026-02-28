@@ -9,6 +9,7 @@ A modern React-based web application for monitoring plant health through real-ti
 - **AI-Powered Analytics** - Machine learning predictions and recommendations
 - **Interactive Dashboard** - Beautiful charts and data visualization
 - **Hardware Integration** - Support for Arduino/ESP32 sensor devices
+- **Python Integration** - Run Python scripts and process datasets from Colab notebooks
 - **Dark/Light Theme** - Modern UI with theme switching
 - **Data Export/Import** - CSV data management
 
@@ -21,10 +22,14 @@ Before running this project, make sure you have the following installed on your 
    - Download from: [https://nodejs.org/](https://nodejs.org/)
    - This includes npm (Node Package Manager)
 
-2. **Git** (optional, for version control)
+2. **Python** (version 3.8 or higher) - For Python integration feature
+   - Download from: [https://www.python.org/](https://www.python.org/)
+   - Make sure to check "Add Python to PATH" during installation
+
+3. **Git** (optional, for version control)
    - Download from: [https://git-scm.com/](https://git-scm.com/)
 
-3. **Code Editor** (recommended)
+4. **Code Editor** (recommended)
    - Visual Studio Code: [https://code.visualstudio.com/](https://code.visualstudio.com/)
    - Or any other IDE you prefer
 
@@ -64,10 +69,33 @@ Run this command:
 npm start
 ```
 
-### Step 5: View the Application
+### Step 5: (Optional) Set Up Python Backend
+If you want to use the Python integration feature:
+
+1. Navigate to the backend directory:
+```bash
+cd backend
+```
+
+2. Install Python dependencies:
+```bash
+pip install -r requirements.txt
+```
+
+3. Start the Python backend server (in a separate terminal):
+```bash
+python app.py
+```
+
+4. The Python backend will run on `http://localhost:5000`
+
+For detailed Python integration instructions, see [PYTHON_INTEGRATION.md](PYTHON_INTEGRATION.md)
+
+### Step 6: View the Application
 1. Your browser should automatically open to `http://localhost:3000`
 2. If it doesn't open automatically, manually go to: `http://localhost:3000`
 3. You should see the HydroMonitor dashboard
+4. Click on "Python Integration" in the sidebar to use Python scripts
 
 ## 🔧 Troubleshooting
 
@@ -117,6 +145,17 @@ Major-Project/
 ## 🌐 Hardware Integration
 
 For real-time hardware connectivity, see the [HARDWARE_SETUP.md](HARDWARE_SETUP.md) file for detailed instructions on connecting Arduino/ESP32 devices.
+
+## 🐍 Python Integration
+
+To integrate your Colab notebook Python code and datasets:
+
+1. Place your dataset in `backend/data/` directory
+2. Convert your Colab notebook code to `backend/scripts/main.py`
+3. Start the Python backend: `cd backend && python app.py`
+4. Access the Python Integration page from the sidebar
+
+For detailed instructions, see [PYTHON_INTEGRATION.md](PYTHON_INTEGRATION.md)
 
 ## 📞 Support
 
