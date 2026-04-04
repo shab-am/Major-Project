@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import PageHeader from '../components/PageHeader';
 import { useSensorReadings } from '../hooks/useSensorReadings';
+import { useEffect } from "react";
+import io from "socket.io-client";
 
 const formatSensorLabel = (key) =>
   key
@@ -20,6 +22,18 @@ const HardwareInterfacePage = ({ styles, theme, isDarkMode, onToggleTheme }) => 
   const [isReading, setIsReading] = useState(false);
   const [port, setPort] = useState(null);
   const [baudRate, setBaudRate] = useState('9600');
+  const [readings, setReadings] = useState([]);
+
+  useEffect(() => {
+    const socket = io("http://localhost:5000");
+
+    socket.on("sensor_update", (data) => {
+      console.log("Live:", data);
+      setReadings(prev => [data, ...prev]);
+    });
+
+    return () => socket.disconnect();
+  }, []);
 
   const {
     payload: livePayload,
@@ -41,11 +55,11 @@ const HardwareInterfacePage = ({ styles, theme, isDarkMode, onToggleTheme }) => 
     try {
       const serialPort = await navigator.serial.requestPort();
       await serialPort.open({ baudRate: parseInt(baudRate) });
-      
+
       setPort(serialPort);
       setConnectionStatus('connected');
       setConnectedDevice(serialPort.getInfo());
-      
+
       // Start reading data
       readSerialData(serialPort);
     } catch (err) {
@@ -71,7 +85,7 @@ const HardwareInterfacePage = ({ styles, theme, isDarkMode, onToggleTheme }) => 
 
         const text = decoder.decode(value);
         const lines = text.split('\n').filter(line => line.trim());
-        
+
         for (const line of lines) {
           try {
             // Try to parse JSON data
@@ -117,11 +131,11 @@ const HardwareInterfacePage = ({ styles, theme, isDarkMode, onToggleTheme }) => 
 
   return (
     <div style={{ marginBottom: '40px' }}>
-      <PageHeader 
-        title="Hardware Interface" 
+      <PageHeader
+        title="Hardware Interface"
         subtitle="Connect Arduino/Raspberry Pi for live sensor data"
-        theme={theme} 
-        isDarkMode={isDarkMode} 
+        theme={theme}
+        isDarkMode={isDarkMode}
         onToggleTheme={onToggleTheme}
       />
 
@@ -260,34 +274,34 @@ const HardwareInterfacePage = ({ styles, theme, isDarkMode, onToggleTheme }) => 
         {livePayload?.success &&
           (!livePayload.project_readings?.length) &&
           livePayload.plant_readings?.length > 0 && (
-          <div style={{ marginTop: '8px' }}>
-            <h4 style={{ color: theme.text, fontSize: '14px', fontWeight: '600', marginBottom: '10px' }}>
-              Recent rows (plant_readings)
-            </h4>
-            <div style={{ overflowX: 'auto', borderRadius: '10px', border: `1px solid ${theme.border}` }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', color: theme.text }}>
-                <thead>
-                  <tr style={{ background: theme.surface, textAlign: 'left' }}>
-                    {Object.keys(livePayload.plant_readings[0]).slice(0, 10).map((col) => (
-                      <th key={col} style={{ padding: '8px 10px', borderBottom: `1px solid ${theme.border}`, whiteSpace: 'nowrap' }}>
-                        {formatSensorLabel(col)}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {livePayload.plant_readings.slice(0, 8).map((row, idx) => (
-                    <tr key={row.id ?? idx} style={{ borderBottom: `1px solid ${theme.border}` }}>
+            <div style={{ marginTop: '8px' }}>
+              <h4 style={{ color: theme.text, fontSize: '14px', fontWeight: '600', marginBottom: '10px' }}>
+                Recent rows (plant_readings)
+              </h4>
+              <div style={{ overflowX: 'auto', borderRadius: '10px', border: `1px solid ${theme.border}` }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', color: theme.text }}>
+                  <thead>
+                    <tr style={{ background: theme.surface, textAlign: 'left' }}>
                       {Object.keys(livePayload.plant_readings[0]).slice(0, 10).map((col) => (
-                        <td key={col} style={{ padding: '8px 10px' }}>{formatSensorValue(row[col])}</td>
+                        <th key={col} style={{ padding: '8px 10px', borderBottom: `1px solid ${theme.border}`, whiteSpace: 'nowrap' }}>
+                          {formatSensorLabel(col)}
+                        </th>
                       ))}
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {livePayload.plant_readings.slice(0, 8).map((row, idx) => (
+                      <tr key={row.id ?? idx} style={{ borderBottom: `1px solid ${theme.border}` }}>
+                        {Object.keys(livePayload.plant_readings[0]).slice(0, 10).map((col) => (
+                          <td key={col} style={{ padding: '8px 10px' }}>{formatSensorValue(row[col])}</td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
-          </div>
-        )}
+          )}
       </div>
 
       {/* Connection Status */}
@@ -310,8 +324,8 @@ const HardwareInterfacePage = ({ styles, theme, isDarkMode, onToggleTheme }) => 
                 height: '12px',
                 borderRadius: '50%',
                 backgroundColor: connectionStatus === 'connected' ? '#4ade80' : '#f87171',
-                boxShadow: connectionStatus === 'connected' 
-                  ? '0 0 12px rgba(74, 222, 128, 0.6)' 
+                boxShadow: connectionStatus === 'connected'
+                  ? '0 0 12px rgba(74, 222, 128, 0.6)'
                   : 'none'
               }} />
               <span style={{ color: theme.text, fontWeight: '600' }}>
@@ -386,7 +400,7 @@ const HardwareInterfacePage = ({ styles, theme, isDarkMode, onToggleTheme }) => 
             marginTop: '12px'
           }}>
             <p style={{ color: theme.textMuted, fontSize: '12px', margin: 0 }}>
-              ⚠️ Web Serial API requires Chrome, Edge, or Opera browser. 
+              ⚠️ Web Serial API requires Chrome, Edge, or Opera browser.
               For other browsers, use the manual entry form.
             </p>
           </div>

@@ -582,46 +582,28 @@ def get_project_readings():
 
 @app.route('/api/sensor/live', methods=['GET'])
 def sensor_live():
-    """Unified snapshot for the dashboard: project_readings + plant_readings."""
     try:
         if not db or not db.is_connected():
             return jsonify({
                 'success': False,
-                'message': 'Database not connected. Please configure MariaDB first.',
-                'project_readings': [],
-                'plant_readings': [],
-                'latest': None,
-                'primary_source': None
+                'data': []
             }), 503
+
         limit = request.args.get('limit', 50, type=int)
-        limit = min(max(limit, 1), 500)
-        project_rows = db.get_recent_project_readings(limit)
-        plant_rows = db.get_recent_readings(limit)
-        latest = None
-        primary = None
-        if project_rows:
-            latest = project_rows[0]
-            primary = 'project_readings'
-        elif plant_rows:
-            latest = plant_rows[0]
-            primary = 'plant_readings'
+        rows = db.get_recent_project_readings(limit)
+
         return jsonify({
             'success': True,
-            'project_readings': project_rows,
-            'plant_readings': plant_rows,
-            'latest': latest,
-            'primary_source': primary,
-            'counts': {
-                'project_readings': len(project_rows),
-                'plant_readings': len(plant_rows)
-            }
-        }), 200
+            'data': rows,
+            'count': len(rows)
+        })
+
     except Exception as e:
         return jsonify({
             'success': False,
             'message': str(e)
         }), 500
-
+    
 # ==================== WebSocket Events ====================
 
 @socketio.on('connect')

@@ -51,7 +51,7 @@ class Database:
             
         try:
             query = """
-                INSERT INTO plant_readings (
+                INSERT INTO project_readings (
                     timestamp, plant_id, plant_name,
                     soil_moisture, ambient_temperature, soil_temperature,
                     humidity, light_intensity, soil_ph,
@@ -95,7 +95,7 @@ class Database:
         try:
             if plant_id:
                 query = """
-                    SELECT * FROM plant_readings 
+                    SELECT * FROM project_readings 
                     WHERE plant_id = ? 
                     ORDER BY timestamp DESC 
                     LIMIT ?
@@ -103,7 +103,7 @@ class Database:
                 self.cursor.execute(query, (plant_id, limit))
             else:
                 query = """
-                    SELECT * FROM plant_readings 
+                    SELECT * FROM project_readings 
                     ORDER BY timestamp DESC 
                     LIMIT ?
                 """
@@ -179,7 +179,7 @@ class Database:
                         AVG(ambient_temperature) as avg_temp,
                         AVG(humidity) as avg_humidity,
                         MAX(timestamp) as last_reading
-                    FROM plant_readings
+                    FROM project_readings
                     WHERE plant_id = ?
                     GROUP BY plant_name
                 """
@@ -193,7 +193,7 @@ class Database:
                         AVG(ambient_temperature) as avg_temp,
                         AVG(humidity) as avg_humidity,
                         MAX(timestamp) as last_reading
-                    FROM plant_readings
+                    FROM project_readings
                     GROUP BY plant_name
                 """
                 self.cursor.execute(query)
