@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import PageHeader from '../components/PageHeader';
 import { useSensorReadings } from '../hooks/useSensorReadings';
-import { useEffect } from "react";
-import io from "socket.io-client";
+import io from 'socket.io-client';
+
+const SOCKET_ORIGIN = process.env.REACT_APP_API_URL || 'http://localhost:5000';
 
 const formatSensorLabel = (key) =>
   key
@@ -25,7 +26,7 @@ const HardwareInterfacePage = ({ styles, theme, isDarkMode, onToggleTheme }) => 
   const [readings, setReadings] = useState([]);
 
   useEffect(() => {
-    const socket = io("http://localhost:5000");
+    const socket = io(SOCKET_ORIGIN, { transports: ['websocket', 'polling'] });
 
     socket.on("sensor_update", (data) => {
       console.log("Live:", data);

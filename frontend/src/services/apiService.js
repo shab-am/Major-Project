@@ -35,8 +35,24 @@ class ApiService {
       `${API_BASE_URL}/api/sensor/live?limit=${encodeURIComponent(limit)}`
     );
     const data = await response.json().catch(() => ({}));
+    // Normalize older/alternate API shape { data: rows } → UI shape
+    let normalized = { ...data };
+    if (
+      normalized.success &&
+      !normalized.latest &&
+      Array.isArray(normalized.data) &&
+      normalized.data.length > 0
+    ) {
+      normalized = {
+        ...normalized,
+        project_readings: normalized.data,
+        plant_readings: [],
+        latest: normalized.data[0],
+        primary_source: 'project_readings'
+      };
+    }
     return {
-      ...data,
+      ...normalized,
       _ok: response.ok,
       _status: response.status
     };
