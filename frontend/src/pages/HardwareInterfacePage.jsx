@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import PageHeader from '../components/PageHeader';
-import { useSensorReadings } from '../hooks/useSensorReadings';
+import { useLiveSensor } from '../context/LiveSensorContext';
+import { omitTimeKeys, isTimeLikeKey } from '../utils/hideTimeFields';
 import io from 'socket.io-client';
 
 const SOCKET_ORIGIN = process.env.REACT_APP_API_URL || 'http://localhost:5000';
@@ -40,8 +41,9 @@ const HardwareInterfacePage = ({ styles, theme, isDarkMode, onToggleTheme }) => 
     payload: livePayload,
     loading: liveLoading,
     error: liveError,
-    refetch: refetchLive
-  } = useSensorReadings(3000);
+    refetch: refetchLive,
+    pollIntervalMs: livePollMs
+  } = useLiveSensor();
 
   // Check for Web Serial API support
   const isSerialSupported = 'serial' in navigator;
@@ -201,7 +203,7 @@ const HardwareInterfacePage = ({ styles, theme, isDarkMode, onToggleTheme }) => 
             <div style={{ color: theme.textMuted, fontSize: '12px', marginBottom: '12px' }}>
               Latest row source: <strong style={{ color: theme.text }}>{livePayload.primary_source || 'unknown'}</strong>
               {' · '}
-              Updated every 3s
+              Updated every {Math.round(livePollMs / 1000)}s (no clock fields shown)
             </div>
             <div style={{
               display: 'grid',
@@ -209,7 +211,8 @@ const HardwareInterfacePage = ({ styles, theme, isDarkMode, onToggleTheme }) => 
               gap: '12px',
               marginBottom: '20px'
             }}>
-              {Object.entries(livePayload.latest)
+              {Object.entries(omitTimeKeys(livePayload.latest))
+                .filter(([k]) => !isTimeLikeKey(k))
                 .filter(([k]) => k !== 'id' || livePayload.primary_source === 'plant_readings')
                 .map(([key, value]) => {
                   if (key === 'id' && (value === null || value === undefined)) return null;
@@ -251,7 +254,10 @@ const HardwareInterfacePage = ({ styles, theme, isDarkMode, onToggleTheme }) => 
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', color: theme.text }}>
                 <thead>
                   <tr style={{ background: theme.surface, textAlign: 'left' }}>
-                    {Object.keys(livePayload.project_readings[0]).slice(0, 12).map((col) => (
+                    {Object.keys(livePayload.project_readings[0])
+                      .filter((col) => !isTimeLikeKey(col))
+                      .slice(0, 12)
+                      .map((col) => (
                       <th key={col} style={{ padding: '8px 10px', borderBottom: `1px solid ${theme.border}`, whiteSpace: 'nowrap' }}>
                         {formatSensorLabel(col)}
                       </th>
@@ -261,7 +267,10 @@ const HardwareInterfacePage = ({ styles, theme, isDarkMode, onToggleTheme }) => 
                 <tbody>
                   {livePayload.project_readings.slice(0, 12).map((row, idx) => (
                     <tr key={row.id ?? idx} style={{ borderBottom: `1px solid ${theme.border}` }}>
-                      {Object.keys(livePayload.project_readings[0]).slice(0, 12).map((col) => (
+                      {Object.keys(livePayload.project_readings[0])
+                        .filter((col) => !isTimeLikeKey(col))
+                        .slice(0, 12)
+                        .map((col) => (
                         <td key={col} style={{ padding: '8px 10px' }}>{formatSensorValue(row[col])}</td>
                       ))}
                     </tr>
@@ -283,7 +292,10 @@ const HardwareInterfacePage = ({ styles, theme, isDarkMode, onToggleTheme }) => 
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', color: theme.text }}>
                   <thead>
                     <tr style={{ background: theme.surface, textAlign: 'left' }}>
-                      {Object.keys(livePayload.plant_readings[0]).slice(0, 10).map((col) => (
+                      {Object.keys(livePayload.plant_readings[0])
+                        .filter((col) => !isTimeLikeKey(col))
+                        .slice(0, 10)
+                        .map((col) => (
                         <th key={col} style={{ padding: '8px 10px', borderBottom: `1px solid ${theme.border}`, whiteSpace: 'nowrap' }}>
                           {formatSensorLabel(col)}
                         </th>
@@ -293,7 +305,10 @@ const HardwareInterfacePage = ({ styles, theme, isDarkMode, onToggleTheme }) => 
                   <tbody>
                     {livePayload.plant_readings.slice(0, 8).map((row, idx) => (
                       <tr key={row.id ?? idx} style={{ borderBottom: `1px solid ${theme.border}` }}>
-                        {Object.keys(livePayload.plant_readings[0]).slice(0, 10).map((col) => (
+                        {Object.keys(livePayload.plant_readings[0])
+                          .filter((col) => !isTimeLikeKey(col))
+                          .slice(0, 10)
+                          .map((col) => (
                           <td key={col} style={{ padding: '8px 10px' }}>{formatSensorValue(row[col])}</td>
                         ))}
                       </tr>
@@ -484,7 +499,7 @@ const HardwareInterfacePage = ({ styles, theme, isDarkMode, onToggleTheme }) => 
               gap: '16px'
             }}>
               {Object.entries(sensorData).map(([key, value]) => {
-                if (key === 'timestamp') return null;
+                if (isTimeLikeKey(key)) return null;
                 return (
                   <div key={key} style={{
                     background: theme.surface,

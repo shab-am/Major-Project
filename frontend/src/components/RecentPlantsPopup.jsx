@@ -1,10 +1,9 @@
 import React from 'react';
 import { X } from 'lucide-react';
 
-const RecentPlantsPopup = ({ isOpen, onClose, theme, isDarkMode, plantData }) => {
+const RecentPlantsPopup = ({ isOpen, onClose, theme, isDarkMode, plantData, liveSnapshot, hasLiveDb }) => {
   if (!isOpen) return null;
 
-  // Mock data for recent plants with more entries
   const recentPlants = [
     { name: 'Bok Choy', status: 'Healthy', ph: 6.2, temp: 22, humidity: 65, tds: 1100, avatar: '🥬', lastUpdate: '2 hours ago' },
     { name: 'Chili Plant', status: 'Moderate', ph: 6.8, temp: 25, humidity: 70, tds: 1500, avatar: '🌶️', lastUpdate: '4 hours ago' },
@@ -127,12 +126,31 @@ const RecentPlantsPopup = ({ isOpen, onClose, theme, isDarkMode, plantData }) =>
     borderRadius: '20px',
     fontSize: '12px',
     fontWeight: '500',
-    background: status === 'Healthy' ? 'rgba(211, 255, 92, 0.2)' : 
-               status === 'Moderate' ? 'rgba(255, 165, 0, 0.2)' : 'rgba(255, 107, 107, 0.2)',
-    color: status === 'Healthy' ? '#d3ff5c' : 
-           status === 'Moderate' ? '#ffa500' : '#ff6b6b',
-    border: `1px solid ${status === 'Healthy' ? 'rgba(211, 255, 92, 0.3)' : 
-                       status === 'Moderate' ? 'rgba(255, 165, 0, 0.3)' : 'rgba(255, 107, 107, 0.3)'}`
+    background:
+      status === 'Live'
+        ? 'rgba(52, 211, 153, 0.2)'
+        : status === 'Healthy'
+          ? 'rgba(211, 255, 92, 0.2)'
+          : status === 'Moderate'
+            ? 'rgba(255, 165, 0, 0.2)'
+            : 'rgba(255, 107, 107, 0.2)',
+    color:
+      status === 'Live'
+        ? '#34d399'
+        : status === 'Healthy'
+          ? '#d3ff5c'
+          : status === 'Moderate'
+            ? '#ffa500'
+            : '#ff6b6b',
+    border: `1px solid ${
+      status === 'Live'
+        ? 'rgba(52, 211, 153, 0.35)'
+        : status === 'Healthy'
+          ? 'rgba(211, 255, 92, 0.3)'
+          : status === 'Moderate'
+            ? 'rgba(255, 165, 0, 0.3)'
+            : 'rgba(255, 107, 107, 0.3)'
+    }`
   });
 
   const metricsStyle = {
@@ -163,12 +181,30 @@ const RecentPlantsPopup = ({ isOpen, onClose, theme, isDarkMode, plantData }) =>
     fontWeight: '600'
   };
 
-  const lastUpdateStyle = {
-    fontSize: '11px',
-    color: theme.textMuted,
-    textAlign: 'center',
-    fontStyle: 'italic'
-  };
+  const liveCard =
+    hasLiveDb && liveSnapshot
+      ? {
+          name: 'Live sensors (database)',
+          status: 'Live',
+          ph:
+            liveSnapshot.ph != null ? Number(liveSnapshot.ph).toFixed(2) : '—',
+          temp:
+            liveSnapshot.temperature != null
+              ? Number(liveSnapshot.temperature).toFixed(1)
+              : '—',
+          humidity:
+            liveSnapshot.humidity != null
+              ? Number(liveSnapshot.humidity).toFixed(0)
+              : '—',
+          tds:
+            liveSnapshot.tds != null ? Number(liveSnapshot.tds).toFixed(0) : '—',
+          avatar: '📡'
+        }
+      : null;
+
+  const gridPlants = liveCard
+    ? [liveCard, ...recentPlants]
+    : recentPlants;
 
   return (
     <div style={popupOverlayStyle} onClick={onClose}>
@@ -192,9 +228,9 @@ const RecentPlantsPopup = ({ isOpen, onClose, theme, isDarkMode, plantData }) =>
         </div>
         <div style={contentStyle}>
           <div style={gridStyle}>
-            {recentPlants.map((plant, index) => (
+            {gridPlants.map((plant, index) => (
               <div 
-                key={index} 
+                key={plant.name + index} 
                 style={plantCardStyle}
                 onMouseEnter={(e) => {
                   e.currentTarget.style.transform = 'translateY(-2px)';
@@ -232,10 +268,6 @@ const RecentPlantsPopup = ({ isOpen, onClose, theme, isDarkMode, plantData }) =>
                     <span style={metricLabelStyle}>TDS</span>
                     <span style={metricValueStyle}>{plant.tds}</span>
                   </div>
-                </div>
-                
-                <div style={lastUpdateStyle}>
-                  Last updated: {plant.lastUpdate}
                 </div>
               </div>
             ))}

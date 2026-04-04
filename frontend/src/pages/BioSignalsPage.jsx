@@ -1,31 +1,53 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
 import PageHeader from '../components/PageHeader';
+import { useLiveSensor } from '../context/LiveSensorContext';
 
 const BioSignalsPage = ({ styles, theme, isDarkMode, onToggleTheme }) => {
+  const { bioSeriesElectrochemical, bioSeriesPh, hasLiveDb, pollIntervalMs } = useLiveSensor();
   const [channel1Data, setChannel1Data] = useState([]);
   const [channel2Data, setChannel2Data] = useState([]);
   const buffer1Ref = useRef([]);
   const buffer2Ref = useRef([]);
+  const [xKey, setXKey] = useState('readingLabel');
+  const [yDomain1, setYDomain1] = useState([-2, 2]);
+  const [yDomain2, setYDomain2] = useState([-2, 2]);
 
   useEffect(() => {
+    if (bioSeriesElectrochemical.length > 0) {
+      setChannel1Data(bioSeriesElectrochemical);
+      const ch2 =
+        bioSeriesPh.length > 0
+          ? bioSeriesPh
+          : bioSeriesElectrochemical.map((p) => ({
+              readingLabel: p.readingLabel,
+              value: p.value != null ? p.value * 0.98 : null
+            }));
+      setChannel2Data(ch2);
+      setXKey('readingLabel');
+      setYDomain1(['auto', 'auto']);
+      setYDomain2(bioSeriesPh.length > 0 ? [0, 14] : ['auto', 'auto']);
+      return undefined;
+    }
+
     let t = Date.now();
+    let idx = 0;
     const id = setInterval(() => {
       t += 200;
-      
-      // Channel 1: Higher frequency signal with more variation
+      idx += 1;
       const channel1Value = Math.sin(t / 600) + Math.cos(t / 400) * 0.5 + (Math.random() - 0.5) * 0.3;
-      const next1 = { t: new Date(t).toLocaleTimeString(), value: channel1Value };
-      buffer1Ref.current.push(next1);
+      buffer1Ref.current.push({ readingLabel: `#${idx}`, value: channel1Value });
       if (buffer1Ref.current.length > 180) buffer1Ref.current.shift();
-      
-      // Channel 2: Lower frequency signal with different pattern
+
       const channel2Value = Math.sin(t / 1000) + Math.sin(t / 800) * 0.3 + (Math.random() - 0.5) * 0.2;
-      const next2 = { t: new Date(t).toLocaleTimeString(), value: channel2Value };
-      buffer2Ref.current.push(next2);
+      buffer2Ref.current.push({ readingLabel: `#${idx}`, value: channel2Value });
       if (buffer2Ref.current.length > 180) buffer2Ref.current.shift();
     }, 200);
-    
+
+    setXKey('readingLabel');
+    setYDomain1([-2, 2]);
+    setYDomain2([-2, 2]);
+
     let raf;
     const tick = () => {
       setChannel1Data(buffer1Ref.current.slice());
@@ -33,10 +55,13 @@ const BioSignalsPage = ({ styles, theme, isDarkMode, onToggleTheme }) => {
       raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
-    return () => { clearInterval(id); cancelAnimationFrame(raf); };
-  }, []);
+    return () => {
+      clearInterval(id);
+      cancelAnimationFrame(raf);
+    };
+  }, [bioSeriesElectrochemical, bioSeriesPh]);
 
-  const createChart = (data, color, title) => (
+  const createChart = (data, color, title, yDomain) => (
     <div style={{ 
       background: theme.card,
       borderRadius: '16px',
@@ -78,18 +103,14 @@ const BioSignalsPage = ({ styles, theme, isDarkMode, onToggleTheme }) => {
       <ResponsiveContainer width="100%" height={280}>
         <LineChart data={data}>
           <CartesianGrid strokeDasharray="3 3" stroke={theme.border} />
-          <XAxis 
-            dataKey="t" 
-            stroke={theme.textMuted} 
+          <XAxis
+            dataKey={xKey}
+            stroke={theme.textMuted}
             fontSize={12}
-            tick={{ fontSize: 10 }}
+            tick={{ fontSize: 9 }}
             interval="preserveStartEnd"
           />
-          <YAxis 
-            stroke={theme.textMuted} 
-            fontSize={12}
-            domain={[-2, 2]}
-          />
+          <YAxis stroke={theme.textMuted} fontSize={12} domain={yDomain} />
           <Tooltip 
             contentStyle={{ 
               backgroundColor: theme.surface, 
@@ -134,14 +155,18 @@ const BioSignalsPage = ({ styles, theme, isDarkMode, onToggleTheme }) => {
           fontSize: '16px', 
           fontWeight: '500' 
         }}>
-          📡 Live bioelectrical signal stream • Mock data for demonstration
+          {hasLiveDb && bioSeriesElectrochemical.length > 0
+            ? `Live electrochemical / pH from database • refresh ~${Math.round(pollIntervalMs / 1000)}s`
+            : '📡 Demo waveform (reading # on axis — no clock time)'}
         </div>
         <div style={{ 
           color: theme.textMuted, 
           fontSize: '14px', 
           marginTop: '4px' 
         }}>
-          Replace with WebSocket/SSE for real hardware integration
+          {hasLiveDb && bioSeriesElectrochemical.length > 0
+            ? 'Values come from stored sensor readings (electrochemical_signal, soil_ph / ph_value).'
+            : 'Connect the collector and open this page to chart real rows.'}
         </div>
       </div>
 
@@ -151,8 +176,8 @@ const BioSignalsPage = ({ styles, theme, isDarkMode, onToggleTheme }) => {
         gridTemplateColumns: 'repeat(auto-fit, minmax(500px, 1fr))',
         alignItems: 'start'
       }}>
-        {createChart(channel1Data, '#d3ff5c', 'Channel 1 - Primary Signal')}
-        {createChart(channel2Data, '#4fc3f7', 'Channel 2 - Secondary Signal')}
+        {createChart(channel1Data, '#d3ff5c', 'Channel 1 — Electrochemical (or demo)', yDomain1)}
+        {createChart(channel2Data, '#4fc3f7', 'Channel 2 — pH (or demo)', yDomain2)}
       </div>
 
       <div style={{ 

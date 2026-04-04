@@ -3,7 +3,7 @@ import { AlertTriangle, Filter, CheckCircle } from 'lucide-react';
 import PageHeader from '../components/PageHeader';
 import { dummyPlants } from '../data/dummyPlants';
 
-const StressInsightsPage = ({ styles, theme, isDarkMode, plantData, onToggleTheme }) => {
+const StressInsightsPage = ({ styles, theme, isDarkMode, plantData, liveSnapshot, hasLiveDb, onToggleTheme }) => {
   const [completedRecommendations, setCompletedRecommendations] = useState([]);
   const [filterPlant, setFilterPlant] = useState('all');
   const [filterPriority, setFilterPriority] = useState('all');
@@ -107,17 +107,110 @@ const StressInsightsPage = ({ styles, theme, isDarkMode, plantData, onToggleThem
     return recommendations;
   };
 
-  // Get all recommendations for stressed plants
+  const liveStressRecs = useMemo(() => {
+    if (!hasLiveDb || !liveSnapshot) return [];
+    const out = [];
+    const s = liveSnapshot;
+    const push = (rec) =>
+      out.push({
+        plantId: 'live-db',
+        plantName: 'Live sensors (database)',
+        ...rec
+      });
+    if (s.ph != null) {
+      if (s.ph < optimalRanges.ph.min) {
+        push({
+          id: 'live-ph-low',
+          parameter: 'pH',
+          action: 'Increase pH toward range',
+          steps: ['Adjust reservoir pH gradually', 'Re-check after circulation'],
+          priority: 'High',
+          currentValue: s.ph,
+          targetValue: optimalRanges.ph.ideal
+        });
+      } else if (s.ph > optimalRanges.ph.max) {
+        push({
+          id: 'live-ph-high',
+          parameter: 'pH',
+          action: 'Decrease pH toward range',
+          steps: ['Dilute or use pH down per system guide'],
+          priority: 'High',
+          currentValue: s.ph,
+          targetValue: optimalRanges.ph.ideal
+        });
+      }
+    }
+    if (s.temperature != null) {
+      if (s.temperature < optimalRanges.temperature.min) {
+        push({
+          id: 'live-temp-low',
+          parameter: 'Temperature',
+          action: 'Raise ambient/nutrient temperature',
+          steps: ['Check heaters and airflow'],
+          priority: 'Medium',
+          currentValue: s.temperature,
+          targetValue: optimalRanges.temperature.ideal
+        });
+      } else if (s.temperature > optimalRanges.temperature.max) {
+        push({
+          id: 'live-temp-high',
+          parameter: 'Temperature',
+          action: 'Improve cooling / shading',
+          steps: ['Ventilate; verify pump heat load'],
+          priority: 'Medium',
+          currentValue: s.temperature,
+          targetValue: optimalRanges.temperature.ideal
+        });
+      }
+    }
+    if (s.humidity != null) {
+      if (s.humidity < optimalRanges.humidity.min) {
+        push({
+          id: 'live-hum-low',
+          parameter: 'Humidity',
+          action: 'Increase humidity',
+          steps: ['Mist sparingly or adjust environment'],
+          priority: 'Medium',
+          currentValue: s.humidity,
+          targetValue: optimalRanges.humidity.ideal
+        });
+      } else if (s.humidity > optimalRanges.humidity.max) {
+        push({
+          id: 'live-hum-high',
+          parameter: 'Humidity',
+          action: 'Reduce humidity',
+          steps: ['Improve air exchange'],
+          priority: 'Medium',
+          currentValue: s.humidity,
+          targetValue: optimalRanges.humidity.ideal
+        });
+      }
+    }
+    if (s.tds != null && (s.tds < optimalRanges.tds.min || s.tds > optimalRanges.tds.max)) {
+      push({
+        id: 'live-tds',
+        parameter: 'TDS',
+        action: 'Adjust nutrient strength',
+        steps: ['Target TDS within optimal band for crop'],
+        priority: 'High',
+        currentValue: s.tds,
+        targetValue: optimalRanges.tds.ideal
+      });
+    }
+    return out;
+  }, [hasLiveDb, liveSnapshot]);
+
   const allRecommendations = useMemo(() => {
     const recs = [];
-    dummyPlants.forEach(plant => {
+    dummyPlants.forEach((plant) => {
       if (plant.healthStatus !== 'Healthy') {
         const analysis = analyzeStress(plant);
         recs.push(...analysis);
       }
     });
+    recs.push(...liveStressRecs);
     return recs;
-  }, []);
+  }, [liveStressRecs]);
 
   // Filter recommendations
   const filteredRecommendations = useMemo(() => {
@@ -153,8 +246,10 @@ const StressInsightsPage = ({ styles, theme, isDarkMode, plantData, onToggleThem
 
   // Get unique plant names for filter
   const plantNames = useMemo(() => {
-    return ['all', ...new Set(dummyPlants.map(p => p.name))];
-  }, []);
+    const base = ['all', ...new Set(dummyPlants.map((p) => p.name))];
+    if (hasLiveDb && liveSnapshot) base.push('Live sensors (database)');
+    return base;
+  }, [hasLiveDb, liveSnapshot]);
 
   return (
     <div style={{ marginBottom: '40px' }}>

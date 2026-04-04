@@ -10,6 +10,11 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+# Omit from JSON to clients (ordering still uses these columns in SQL where needed).
+_CLIENT_OMIT_LOWER = frozenset({
+    'timestamp', 'created_at', 'updated_at', 'last_reading', 'reading_time', 'modified_at',
+})
+
 
 def _serialize_value(v):
     if v is None:
@@ -19,6 +24,15 @@ def _serialize_value(v):
     if hasattr(v, "isoformat"):
         return v.isoformat(sep=" ")
     return v
+
+
+def _public_row_dict(columns, row):
+    raw = dict(zip(columns, row))
+    return {
+        k: _serialize_value(v)
+        for k, v in raw.items()
+        if str(k).lower() not in _CLIENT_OMIT_LOWER
+    }
 
 
 class Database:
@@ -112,8 +126,7 @@ class Database:
             columns = [desc[0] for desc in self.cursor.description]
             results = []
             for row in self.cursor.fetchall():
-                raw = dict(zip(columns, row))
-                results.append({k: _serialize_value(v) for k, v in raw.items()})
+                results.append(_public_row_dict(columns, row))
             return results
         except mariadb.Error as e:
             print(f"❌ Error fetching readings: {e}")
@@ -157,8 +170,7 @@ class Database:
             columns = [desc[0] for desc in self.cursor.description]
             results = []
             for row in self.cursor.fetchall():
-                raw = dict(zip(columns, row))
-                results.append({k: _serialize_value(v) for k, v in raw.items()})
+                results.append(_public_row_dict(columns, row))
             return results
         except mariadb.Error as e:
             print(f"❌ Error fetching project_readings: {e}")
@@ -201,8 +213,7 @@ class Database:
             columns = [desc[0] for desc in self.cursor.description]
             results = []
             for row in self.cursor.fetchall():
-                raw = dict(zip(columns, row))
-                results.append({k: _serialize_value(v) for k, v in raw.items()})
+                results.append(_public_row_dict(columns, row))
             return results
         except mariadb.Error as e:
             print(f"❌ Error fetching statistics: {e}")

@@ -1,10 +1,33 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Droplets, TrendingUp, AlertTriangle, Filter, BarChart3 } from 'lucide-react';
 import { ResponsiveContainer, LineChart, Line, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ReferenceLine } from 'recharts';
 import PageHeader from '../components/PageHeader';
 import pythonService from '../services/pythonService';
 
-const ChartCard = ({ title, icon, color, data, dataKey, isDarkMode, theme, yDomain, optimalRange, anomalies, showAlerts }) => {
+const ChartTooltip = ({ active, payload, label, theme, isDarkMode }) => {
+  if (!active || !payload?.length) return null;
+  return (
+    <div
+      style={{
+        backgroundColor: isDarkMode ? 'rgba(0,0,0,0.85)' : '#fff',
+        border: 'none',
+        borderRadius: 8,
+        padding: '8px 12px',
+        color: theme.text,
+        fontSize: 13
+      }}
+    >
+      <div style={{ fontWeight: 600, marginBottom: 4 }}>Reading {label}</div>
+      {payload.map((p) => (
+        <div key={p.dataKey}>
+          {p.name}: {p.value != null && typeof p.value === 'number' ? p.value.toFixed(2) : p.value}
+        </div>
+      ))}
+    </div>
+  );
+};
+
+const ChartCard = ({ title, icon, color, data, dataKey, isDarkMode, theme, yDomain, optimalRange, anomalies, showAlerts, xDataKey = 'readingLabel' }) => {
   const [animatedData, setAnimatedData] = React.useState([]);
 
   React.useEffect(() => {
@@ -87,9 +110,9 @@ const ChartCard = ({ title, icon, color, data, dataKey, isDarkMode, theme, yDoma
       <ResponsiveContainer width="100%" height={300}>
         <LineChart data={animatedData.length > 0 ? animatedData : data}>
           <CartesianGrid strokeDasharray="3 3" stroke={isDarkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)'} />
-          <XAxis dataKey="timestamp" stroke={isDarkMode ? '#94a3b8' : '#555'} angle={-45} textAnchor="end" height={70} />
+          <XAxis dataKey={xDataKey} stroke={isDarkMode ? '#94a3b8' : '#555'} tick={{ fontSize: 11 }} height={36} />
           <YAxis stroke={isDarkMode ? '#94a3b8' : '#555'} domain={yDomain || [0, 'auto']} />
-          <Tooltip contentStyle={{ backgroundColor: isDarkMode ? 'rgba(0,0,0,0.8)' : '#fff', border: 'none', borderRadius: 8, color: theme.text }} />
+          <Tooltip content={(props) => <ChartTooltip {...props} theme={theme} isDarkMode={isDarkMode} />} />
           <Legend />
           {optimalRange && showAlerts && (
             <>
@@ -128,7 +151,7 @@ const ChartCard = ({ title, icon, color, data, dataKey, isDarkMode, theme, yDoma
   );
 };
 
-const ComparisonChart = ({ title, icon, data, metrics, isDarkMode, theme, yDomain }) => {
+const ComparisonChart = ({ title, icon, data, metrics, isDarkMode, theme, yDomain, xDataKey = 'readingLabel' }) => {
   const [animatedData, setAnimatedData] = React.useState([]);
 
   React.useEffect(() => {
@@ -162,9 +185,9 @@ const ComparisonChart = ({ title, icon, data, metrics, isDarkMode, theme, yDomai
       <ResponsiveContainer width="100%" height={350}>
         <AreaChart data={animatedData.length > 0 ? animatedData : data}>
         <CartesianGrid strokeDasharray="3 3" stroke={isDarkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)'} />
-        <XAxis dataKey="timestamp" stroke={isDarkMode ? '#94a3b8' : '#555'} angle={-45} textAnchor="end" height={70} />
+        <XAxis dataKey={xDataKey} stroke={isDarkMode ? '#94a3b8' : '#555'} tick={{ fontSize: 11 }} height={36} />
         <YAxis stroke={isDarkMode ? '#94a3b8' : '#555'} domain={yDomain || [0, 'auto']} />
-        <Tooltip contentStyle={{ backgroundColor: isDarkMode ? 'rgba(0,0,0,0.8)' : '#fff', border: 'none', borderRadius: 8, color: theme.text }} />
+        <Tooltip content={(props) => <ChartTooltip {...props} theme={theme} isDarkMode={isDarkMode} />} />
         <Legend />
           {metrics.map((metric, index) => (
             <Area
@@ -184,7 +207,7 @@ const ComparisonChart = ({ title, icon, data, metrics, isDarkMode, theme, yDomai
 );
 };
 
-const AnalyticsPage = ({ styles, getChartData, getTrendAnalysis, pastDays, setPastDays, isDarkMode, theme, plantInfo, plantData, onToggleTheme }) => {
+const AnalyticsPage = ({ styles, getChartData, getTrendAnalysis, pastDays, setPastDays, isDarkMode, theme, plantInfo, plantData, liveAnalyticsRows = [], hasLiveDb = false, livePollMs = 3000, onToggleTheme }) => {
   const [datasetData, setDatasetData] = useState([]);
   const [loading, setLoading] = useState(false);
   const [timeRange, setTimeRange] = useState('7'); // Default to 7 days
@@ -208,23 +231,28 @@ const AnalyticsPage = ({ styles, getChartData, getTrendAnalysis, pastDays, setPa
     { value: 'all', label: 'All Time' }
   ];
 
-  // Load dataset data
-  useEffect(() => {
-    const loadDataset = async () => {
-      try {
-        setLoading(true);
-        const response = await pythonService.getDatasetData();
-        if (response.success && response.data) {
-          setDatasetData(response.data);
-        }
-      } catch (err) {
-        console.error('Error loading dataset for analytics:', err);
-      } finally {
-        setLoading(false);
+  const loadDataset = useCallback(async () => {
+    try {
+      setLoading(true);
+      const response = await pythonService.getDatasetData();
+      if (response.success && response.data) {
+        setDatasetData(response.data);
       }
-    };
-    loadDataset();
+    } catch (err) {
+      console.error('Error loading dataset for analytics:', err);
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    loadDataset();
+  }, [loadDataset]);
+
+  useEffect(() => {
+    const id = setInterval(loadDataset, 30000);
+    return () => clearInterval(id);
+  }, [loadDataset]);
 
   // Update pastDays when timeRange changes
   useEffect(() => {
@@ -235,12 +263,14 @@ const AnalyticsPage = ({ styles, getChartData, getTrendAnalysis, pastDays, setPa
     }
   }, [timeRange, setPastDays]);
 
-  // Combine dataset with new entries for chart data
   const allDataForCharts = useMemo(() => {
-    const combined = [...(datasetData || [])];
-    
+    const combined = [];
+    if (liveAnalyticsRows && liveAnalyticsRows.length > 0) {
+      combined.push(...liveAnalyticsRows);
+    }
+    combined.push(...(datasetData || []));
     if (plantData && Array.isArray(plantData)) {
-      const newEntries = plantData.map(entry => ({
+      const newEntries = plantData.map((entry) => ({
         Timestamp: entry.timestamp,
         Plant_ID: entry.id,
         Plant_Name: entry.plantName || `Plant ${entry.id}`,
@@ -248,13 +278,12 @@ const AnalyticsPage = ({ styles, getChartData, getTrendAnalysis, pastDays, setPa
         Ambient_Temperature: entry.temperature,
         Humidity: entry.humidity,
         TDS: entry.tds,
-        Dissolved_Oxygen: entry.dissolvedOxy,
+        Dissolved_Oxygen: entry.dissolvedOxy
       }));
       combined.push(...newEntries);
     }
-    
     return combined;
-  }, [datasetData, plantData]);
+  }, [datasetData, plantData, liveAnalyticsRows]);
 
   // Anomaly detection using IQR (Interquartile Range) method
   const detectAnomalies = (data, dataKey) => {
@@ -279,7 +308,7 @@ const AnalyticsPage = ({ styles, getChartData, getTrendAnalysis, pastDays, setPa
         value: item[dataKey]
       }))
       .filter(item => item.value != null && (item.value < lowerBound || item.value > upperBound))
-      .map(item => ({ index: item.index, value: item.value, timestamp: item.timestamp }));
+      .map(item => ({ index: item.index, value: item.value, readingLabel: item.readingLabel }));
   };
 
   // Generate sample data if dataset is empty (for demonstration)
@@ -346,58 +375,55 @@ const AnalyticsPage = ({ styles, getChartData, getTrendAnalysis, pastDays, setPa
     return finalDataForCharts.length;
   }, [finalDataForCharts]);
 
-  // Get chart data from combined dataset
   const getChartDataFromDataset = (dataType) => {
     if (!finalDataForCharts || finalDataForCharts.length === 0) return [];
-    
+
     let cutoffDate = new Date();
     if (timeRange === 'all') {
-      cutoffDate = new Date(0); // Start from epoch
+      cutoffDate = new Date(0);
     } else {
       cutoffDate.setDate(cutoffDate.getDate() - parseInt(timeRange));
     }
-    
-    return finalDataForCharts
-      .filter(entry => {
-        const entryDate = new Date(entry.Timestamp || entry.timestamp);
-        return entryDate >= cutoffDate;
-      })
-      .map(entry => {
-        const timestamp = entry.Timestamp || entry.timestamp;
-        // Format timestamp for display (show date and time)
-        const date = new Date(timestamp);
-        const formattedTimestamp = date.toLocaleDateString('en-US', { 
-          month: 'short', 
-          day: 'numeric',
-          hour: '2-digit',
-          minute: '2-digit'
-        });
-        
-        return {
-          timestamp: formattedTimestamp,
-          fullTimestamp: timestamp,
-          ph: entry.Soil_pH || entry.ph || null,
-          tds: entry.TDS || entry.tds || null,
-          temperature: entry.Ambient_Temperature || entry.temperature || null,
-          humidity: entry.Humidity || entry.humidity || null,
-          dissolvedOxy: entry.Dissolved_Oxygen || entry.dissolvedOxy || null,
-          plantId: entry.Plant_ID || entry.plantId,
-          plantName: entry.Plant_Name || entry.plantName,
-        };
-      })
-      .filter(entry => entry[dataType] != null) // Filter out null values for the specific metric
-      .sort((a, b) => new Date(a.fullTimestamp) - new Date(b.fullTimestamp));
+
+    const filtered = finalDataForCharts.filter((entry) => {
+      if (entry._live) return true;
+      const ts = entry.Timestamp || entry.timestamp;
+      if (!ts) return false;
+      const entryDate = new Date(ts);
+      return !Number.isNaN(entryDate.getTime()) && entryDate >= cutoffDate;
+    });
+
+    const sorted = [...filtered].sort((a, b) => {
+      if (a._live && b._live) return (a._sortKey ?? 0) - (b._sortKey ?? 0);
+      if (a._live && !b._live) return 1;
+      if (!a._live && b._live) return -1;
+      const da = new Date(a.Timestamp || a.timestamp || 0).getTime();
+      const db = new Date(b.Timestamp || b.timestamp || 0).getTime();
+      return da - db;
+    });
+
+    return sorted
+      .map((entry, index) => ({
+        readingLabel: `#${index + 1}`,
+        ph: entry.Soil_pH ?? entry.ph ?? null,
+        tds: entry.TDS ?? entry.tds ?? null,
+        temperature: entry.Ambient_Temperature ?? entry.temperature ?? null,
+        humidity: entry.Humidity ?? entry.humidity ?? null,
+        dissolvedOxy: entry.Dissolved_Oxygen ?? entry.dissolvedOxy ?? null,
+        plantId: entry.Plant_ID ?? entry.plantId,
+        plantName: entry.Plant_Name ?? entry.plantName
+      }))
+      .filter((entry) => entry[dataType] != null);
   };
 
-  // Get comparison chart data
   const getComparisonData = () => {
     const data = getChartDataFromDataset('ph');
-    return data.map(item => ({
-      timestamp: item.timestamp,
+    return data.map((item) => ({
+      readingLabel: item.readingLabel,
       ...(selectedMetrics.includes('ph') && { ph: item.ph }),
       ...(selectedMetrics.includes('temperature') && { temperature: item.temperature }),
       ...(selectedMetrics.includes('humidity') && { humidity: item.humidity }),
-      ...(selectedMetrics.includes('tds') && { tds: item.tds }),
+      ...(selectedMetrics.includes('tds') && { tds: item.tds })
     }));
   };
 
@@ -410,6 +436,24 @@ const AnalyticsPage = ({ styles, getChartData, getTrendAnalysis, pastDays, setPa
         isDarkMode={isDarkMode} 
         onToggleTheme={onToggleTheme}
       />
+
+      {hasLiveDb && (
+        <div
+          style={{
+            background: theme.surface,
+            borderRadius: '12px',
+            padding: '12px 16px',
+            marginBottom: '16px',
+            border: `1px solid ${theme.border}`,
+            color: theme.textMuted,
+            fontSize: '13px'
+          }}
+        >
+          Live sensor data from the database is merged into these charts and refreshes about every{' '}
+          {Math.round(livePollMs / 1000)}s. Chart axes use reading numbers (<code style={{ background: theme.bg, padding: '2px 6px', borderRadius: 4 }}>#1</code>,{' '}
+          <code style={{ background: theme.bg, padding: '2px 6px', borderRadius: 4 }}>#2</code>, …), not clock times.
+        </div>
+      )}
       
       {/* Filters Section */}
       <div style={{ 
@@ -507,7 +551,12 @@ const AnalyticsPage = ({ styles, getChartData, getTrendAnalysis, pastDays, setPa
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
               <BarChart3 size={20} color={theme.accent} />
               <span style={{ color: theme.text, fontSize: '14px', fontWeight: '600' }}>
-                Data Source: {datasetData.length > 0 ? 'Dataset + Entries' : 'Sample Data (Demo)'}
+                Data Source:{' '}
+                {liveAnalyticsRows.length > 0
+                  ? `Live DB (${liveAnalyticsRows.length}) + dataset + entries`
+                  : datasetData.length > 0
+                    ? 'Dataset + Entries'
+                    : 'Sample Data (Demo)'}
               </span>
             </div>
             <div style={{ color: theme.textMuted, fontSize: '13px' }}>
@@ -523,6 +572,7 @@ const AnalyticsPage = ({ styles, getChartData, getTrendAnalysis, pastDays, setPa
                 title="Metric Comparison"
                 icon={<BarChart3 size={24} color={theme.accent} />}
                 data={getComparisonData()}
+                xDataKey="readingLabel"
                 metrics={selectedMetrics.map(metric => ({
                   key: metric,
                   color: metric === 'ph' ? '#10b981' : 

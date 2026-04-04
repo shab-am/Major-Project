@@ -4,22 +4,44 @@ import { Leaf, Activity, TrendingUp, AlertTriangle, CheckCircle, Droplets, Therm
 import PageHeader from '../components/PageHeader';
 import { dummyPlants, weeklyTrendData } from '../data/dummyPlants';
 
-const Dashboard = ({ theme, isDarkMode, onViewAllPlants, onToggleTheme }) => {
-  // Use dummy plants data
+const Dashboard = ({
+  theme,
+  isDarkMode,
+  plantData: _plantData,
+  liveSnapshot,
+  dashboardTrend = [],
+  hasLiveDb,
+  livePollMs = 3000,
+  onViewAllPlants,
+  onToggleTheme
+}) => {
   const plants = dummyPlants;
 
-  // Calculate stats from dummy plants
+  const trendAverages = useMemo(() => {
+    if (!dashboardTrend?.length) return null;
+    const phs = dashboardTrend.map((t) => t.ph).filter((v) => v != null && !Number.isNaN(v));
+    const temps = dashboardTrend.map((t) => t.temp).filter((v) => v != null && !Number.isNaN(v));
+    if (!phs.length && !temps.length) return null;
+    return {
+      avgPH: phs.length
+        ? (phs.reduce((a, b) => a + b, 0) / phs.length).toFixed(2)
+        : null,
+      avgTemp: temps.length
+        ? (temps.reduce((a, b) => a + b, 0) / temps.length).toFixed(1)
+        : null
+    };
+  }, [dashboardTrend]);
+
   const stats = useMemo(() => {
     const total = plants.length;
-    const healthy = plants.filter(p => p.healthStatus === 'Healthy').length;
-    const moderate = plants.filter(p => p.healthStatus === 'Moderate Stress').length;
-    const stressed = plants.filter(p => p.healthStatus === 'High Stress').length;
-    
-    // Calculate average values
+    const healthy = plants.filter((p) => p.healthStatus === 'Healthy').length;
+    const moderate = plants.filter((p) => p.healthStatus === 'Moderate Stress').length;
+    const stressed = plants.filter((p) => p.healthStatus === 'High Stress').length;
+
     const avgPH = (plants.reduce((sum, p) => sum + p.ph, 0) / total).toFixed(2);
     const avgTemp = (plants.reduce((sum, p) => sum + p.temperature, 0) / total).toFixed(1);
     const avgHumidity = (plants.reduce((sum, p) => sum + p.humidity, 0) / total).toFixed(1);
-    
+
     return {
       totalPlants: total,
       activeMonitoring: total,
@@ -76,6 +98,27 @@ const Dashboard = ({ theme, isDarkMode, onViewAllPlants, onToggleTheme }) => {
         isDarkMode={isDarkMode} 
         onToggleTheme={onToggleTheme}
       />
+
+      {hasLiveDb && (
+        <div
+          style={{
+            background: theme.surface,
+            borderRadius: '12px',
+            padding: '12px 16px',
+            marginBottom: '20px',
+            border: `1px solid ${theme.border}`,
+            color: theme.textMuted,
+            fontSize: '13px'
+          }}
+        >
+          Live database readings update the metrics and trend chart about every {Math.round(livePollMs / 1000)}s.
+          {liveSnapshot?.ph != null && (
+            <span style={{ color: theme.text, marginLeft: 8 }}>
+              Latest pH: <strong>{Number(liveSnapshot.ph).toFixed(2)}</strong>
+            </span>
+          )}
+        </div>
+      )}
 
       {/* Stats Cards with Icons */}
       <div style={{ 
@@ -277,8 +320,12 @@ const Dashboard = ({ theme, isDarkMode, onViewAllPlants, onToggleTheme }) => {
             <Droplets size={24} color={theme.accent} />
           </div>
           <div>
-            <div style={{ color: theme.textMuted, fontSize: '12px', marginBottom: '4px' }}>Avg pH</div>
-            <div style={{ color: theme.text, fontSize: '24px', fontWeight: 'bold' }}>{stats.avgPH}</div>
+            <div style={{ color: theme.textMuted, fontSize: '12px', marginBottom: '4px' }}>
+              Avg pH{trendAverages?.avgPH ? ' (live window)' : ''}
+            </div>
+            <div style={{ color: theme.text, fontSize: '24px', fontWeight: 'bold' }}>
+              {trendAverages?.avgPH ?? stats.avgPH}
+            </div>
           </div>
         </div>
 
@@ -303,8 +350,12 @@ const Dashboard = ({ theme, isDarkMode, onViewAllPlants, onToggleTheme }) => {
             <Thermometer size={24} color="#ff6b6b" />
           </div>
           <div>
-            <div style={{ color: theme.textMuted, fontSize: '12px', marginBottom: '4px' }}>Avg Temperature</div>
-            <div style={{ color: theme.text, fontSize: '24px', fontWeight: 'bold' }}>{stats.avgTemp}°C</div>
+            <div style={{ color: theme.textMuted, fontSize: '12px', marginBottom: '4px' }}>
+              Avg Temperature{trendAverages?.avgTemp ? ' (live window)' : ''}
+            </div>
+            <div style={{ color: theme.text, fontSize: '24px', fontWeight: 'bold' }}>
+              {(trendAverages?.avgTemp ?? stats.avgTemp)}°C
+            </div>
           </div>
         </div>
 
@@ -329,8 +380,15 @@ const Dashboard = ({ theme, isDarkMode, onViewAllPlants, onToggleTheme }) => {
             <Sun size={24} color={theme.accent} />
           </div>
           <div>
-            <div style={{ color: theme.textMuted, fontSize: '12px', marginBottom: '4px' }}>Avg Humidity</div>
-            <div style={{ color: theme.text, fontSize: '24px', fontWeight: 'bold' }}>{stats.avgHumidity}%</div>
+            <div style={{ color: theme.textMuted, fontSize: '12px', marginBottom: '4px' }}>
+              Avg Humidity{liveSnapshot?.humidity != null ? ' (latest live)' : ''}
+            </div>
+            <div style={{ color: theme.text, fontSize: '24px', fontWeight: 'bold' }}>
+              {liveSnapshot?.humidity != null
+                ? Number(liveSnapshot.humidity).toFixed(1)
+                : stats.avgHumidity}
+              %
+            </div>
           </div>
         </div>
       </div>
@@ -353,13 +411,17 @@ const Dashboard = ({ theme, isDarkMode, onViewAllPlants, onToggleTheme }) => {
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>
             <TrendingUp size={20} color={theme.accent} />
             <h3 style={{ color: theme.text, fontSize: '18px', fontWeight: 'bold', margin: 0 }}>
-              Weekly Trends
+              {dashboardTrend?.length ? 'Live sensor trend (readings)' : 'Weekly Trends'}
             </h3>
           </div>
           <ResponsiveContainer width="100%" height={250}>
-            <AreaChart data={weeklyTrendData}>
+            <AreaChart data={dashboardTrend?.length ? dashboardTrend : weeklyTrendData}>
               <CartesianGrid strokeDasharray="3 3" stroke={theme.border} />
-              <XAxis dataKey="day" stroke={theme.textMuted} />
+              <XAxis
+                dataKey={dashboardTrend?.length ? 'label' : 'day'}
+                stroke={theme.textMuted}
+                tick={{ fontSize: 10 }}
+              />
               <YAxis stroke={theme.textMuted} />
               <Tooltip 
                 contentStyle={{ 
@@ -369,8 +431,17 @@ const Dashboard = ({ theme, isDarkMode, onViewAllPlants, onToggleTheme }) => {
                   color: theme.text
                 }} 
               />
-              <Area type="monotone" dataKey="health" stroke="#d3ff5c" fill="#d3ff5c" fillOpacity={0.3} />
-              <Area type="monotone" dataKey="temp" stroke={theme.accent} fill={theme.accent} fillOpacity={0.3} />
+              {dashboardTrend?.length ? (
+                <>
+                  <Area type="monotone" dataKey="ph" name="pH" stroke="#d3ff5c" fill="#d3ff5c" fillOpacity={0.3} />
+                  <Area type="monotone" dataKey="temp" name="Temp °C" stroke={theme.accent} fill={theme.accent} fillOpacity={0.3} />
+                </>
+              ) : (
+                <>
+                  <Area type="monotone" dataKey="health" stroke="#d3ff5c" fill="#d3ff5c" fillOpacity={0.3} />
+                  <Area type="monotone" dataKey="temp" stroke={theme.accent} fill={theme.accent} fillOpacity={0.3} />
+                </>
+              )}
             </AreaChart>
           </ResponsiveContainer>
         </div>

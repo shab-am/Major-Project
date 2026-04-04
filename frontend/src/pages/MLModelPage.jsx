@@ -4,7 +4,7 @@ import PageHeader from '../components/PageHeader';
 import usePlantHealthPrediction from '../hooks/usePlantHealthPrediction';
 import { dummyPlants } from '../data/dummyPlants';
 
-const MLModelPage = ({ styles, theme, isDarkMode, plantData, onToggleTheme }) => {
+const MLModelPage = ({ styles, theme, isDarkMode, plantData, liveSnapshot, hasLiveDb, onToggleTheme }) => {
   const { loadModelInfo, getHealthStatusStyle, modelInfo } = usePlantHealthPrediction();
   const [loading, setLoading] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
@@ -63,6 +63,46 @@ const MLModelPage = ({ styles, theme, isDarkMode, plantData, onToggleTheme }) =>
         isDarkMode={isDarkMode} 
         onToggleTheme={onToggleTheme}
       />
+
+      {hasLiveDb && liveSnapshot && (
+        <div
+          style={{
+            background: theme.surface,
+            borderRadius: '16px',
+            padding: '20px',
+            border: `1px solid ${theme.border}`,
+            marginBottom: '24px',
+            color: theme.text
+          }}
+        >
+          <div style={{ fontWeight: 700, marginBottom: '12px', color: theme.accent }}>
+            Latest live sensor snapshot (from database)
+          </div>
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))',
+              gap: '12px',
+              fontSize: '14px'
+            }}
+          >
+            {[
+              ['pH', liveSnapshot.ph],
+              ['Temp °C', liveSnapshot.temperature],
+              ['Humidity %', liveSnapshot.humidity],
+              ['TDS', liveSnapshot.tds],
+              ['DO', liveSnapshot.dissolvedOxy]
+            ].map(([label, v]) => (
+              <div key={label}>
+                <div style={{ color: theme.textMuted, fontSize: '11px' }}>{label}</div>
+                <div style={{ fontWeight: 600 }}>
+                  {v != null && Number.isFinite(Number(v)) ? Number(v).toFixed(2) : '—'}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Model Summary - Simplified */}
       {modelInfo && modelInfo.model_exists ? (

@@ -11,6 +11,7 @@ import SettingsPage from './pages/SettingsPage';
 import Dashboard from './components/Dashboard';
 import RecentPlantsPopup from './components/RecentPlantsPopup';
 import './components/Sidebar.css';
+import { useLiveSensor } from './context/LiveSensorContext';
 
 const HydroMonitor = () => {
   const [currentPage, setCurrentPage] = useState('dashboard');
@@ -21,6 +22,14 @@ const HydroMonitor = () => {
   const [showRecentPlantsPopup, setShowRecentPlantsPopup] = useState(false);
 
   const theme = getTheme(isDarkMode);
+
+  const {
+    analyticsLiveRows,
+    latestSnapshot,
+    hasLiveDb,
+    dashboardTrend,
+    pollIntervalMs: livePollMs
+  } = useLiveSensor();
 
   const csvInputRef = useRef(null);
   const mainContentRef = useRef(null);
@@ -587,6 +596,10 @@ const HydroMonitor = () => {
             theme={theme} 
             isDarkMode={isDarkMode} 
             plantData={plantData} 
+            liveSnapshot={latestSnapshot}
+            dashboardTrend={dashboardTrend}
+            hasLiveDb={hasLiveDb}
+            livePollMs={livePollMs}
             onViewAllPlants={() => setShowRecentPlantsPopup(true)}
             onToggleTheme={() => setIsDarkMode(!isDarkMode)}
                   />
@@ -612,6 +625,9 @@ const HydroMonitor = () => {
               theme={theme}
               plantInfo={plantInfo}
               plantData={plantData}
+              liveAnalyticsRows={analyticsLiveRows}
+              hasLiveDb={hasLiveDb}
+              livePollMs={livePollMs}
               onToggleTheme={() => setIsDarkMode(!isDarkMode)}
             />
           )}
@@ -621,6 +637,8 @@ const HydroMonitor = () => {
                   theme={theme} 
                   isDarkMode={isDarkMode} 
                   plantData={plantData}
+                  liveSnapshot={latestSnapshot}
+                  hasLiveDb={hasLiveDb}
                   onToggleTheme={() => setIsDarkMode(!isDarkMode)} 
                 />
               )}
@@ -630,6 +648,8 @@ const HydroMonitor = () => {
                   theme={theme}
                   isDarkMode={isDarkMode}
                   plantData={plantData}
+                  liveSnapshot={latestSnapshot}
+                  hasLiveDb={hasLiveDb}
                   onToggleTheme={() => setIsDarkMode(!isDarkMode)}
                 />
               )}
@@ -651,6 +671,8 @@ const HydroMonitor = () => {
         theme={theme}
         isDarkMode={isDarkMode}
         plantData={plantData}
+        liveSnapshot={latestSnapshot}
+        hasLiveDb={hasLiveDb}
       />
     </div>
   );
