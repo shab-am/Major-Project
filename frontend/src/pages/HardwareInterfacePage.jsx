@@ -1,5 +1,17 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import PageHeader from '../components/PageHeader';
+import { useSensorReadings } from '../hooks/useSensorReadings';
+
+const formatSensorLabel = (key) =>
+  key
+    .replace(/_/g, ' ')
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+
+const formatSensorValue = (value) => {
+  if (value === null || value === undefined) return '—';
+  if (typeof value === 'number' && Number.isFinite(value)) return value.toFixed(2);
+  return String(value);
+};
 
 const HardwareInterfacePage = ({ styles, theme, isDarkMode, onToggleTheme }) => {
   const [connectionStatus, setConnectionStatus] = useState('disconnected');
@@ -8,6 +20,13 @@ const HardwareInterfacePage = ({ styles, theme, isDarkMode, onToggleTheme }) => 
   const [isReading, setIsReading] = useState(false);
   const [port, setPort] = useState(null);
   const [baudRate, setBaudRate] = useState('9600');
+
+  const {
+    payload: livePayload,
+    loading: liveLoading,
+    error: liveError,
+    refetch: refetchLive
+  } = useSensorReadings(3000);
 
   // Check for Web Serial API support
   const isSerialSupported = 'serial' in navigator;
@@ -105,6 +124,171 @@ const HardwareInterfacePage = ({ styles, theme, isDarkMode, onToggleTheme }) => 
         isDarkMode={isDarkMode} 
         onToggleTheme={onToggleTheme}
       />
+
+      {/* Live readings from MariaDB (backend API + data collector) */}
+      <div style={{
+        background: theme.card,
+        borderRadius: '16px',
+        padding: '24px',
+        border: `1px solid ${theme.border}`,
+        boxShadow: isDarkMode ? '0 4px 20px rgba(0, 0, 0, 0.3)' : '0 2px 10px rgba(0, 0, 0, 0.1)',
+        marginBottom: '24px'
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px', marginBottom: '16px' }}>
+          <div>
+            <h3 style={{ color: theme.text, fontSize: '20px', fontWeight: 'bold', margin: 0, marginBottom: '6px' }}>
+              Live sensor data (database)
+            </h3>
+            <p style={{ color: theme.textMuted, fontSize: '13px', margin: 0, maxWidth: '640px', lineHeight: 1.5 }}>
+              Pulled from the Flask API (<code style={{ background: theme.bg, padding: '2px 6px', borderRadius: '4px' }}>/api/sensor/live</code>).
+              Run <code style={{ background: theme.bg, padding: '2px 6px', borderRadius: '4px' }}>backend/scripts/data_collector.py</code> so serial readings are written to MariaDB.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => refetchLive()}
+            style={{
+              padding: '8px 16px',
+              borderRadius: '8px',
+              border: `1px solid ${theme.border}`,
+              background: theme.surface,
+              color: theme.text,
+              fontSize: '13px',
+              fontWeight: '600',
+              cursor: 'pointer'
+            }}
+          >
+            Refresh now
+          </button>
+        </div>
+
+        {liveLoading && !livePayload && (
+          <p style={{ color: theme.textMuted, fontSize: '14px', margin: 0 }}>Loading…</p>
+        )}
+        {liveError && (
+          <div style={{
+            background: isDarkMode ? 'rgba(248, 113, 113, 0.12)' : 'rgba(224, 102, 102, 0.12)',
+            border: `1px solid ${isDarkMode ? 'rgba(248, 113, 113, 0.35)' : 'rgba(224, 102, 102, 0.4)'}`,
+            borderRadius: '10px',
+            padding: '12px 14px',
+            marginBottom: livePayload?.latest ? '16px' : 0
+          }}>
+            <strong style={{ color: theme.text }}>API / database: </strong>
+            <span style={{ color: theme.textMuted }}>{liveError}</span>
+            <span style={{ color: theme.textMuted, display: 'block', marginTop: '8px', fontSize: '12px' }}>
+              Ensure MariaDB is running, <code style={{ background: theme.bg, padding: '2px 6px', borderRadius: '4px' }}>.env</code> matches your DB, and the Flask app is on port 5000. Set <code style={{ background: theme.bg, padding: '2px 6px', borderRadius: '4px' }}>REACT_APP_API_URL</code> if the API is not at localhost:5000.
+            </span>
+          </div>
+        )}
+
+        {livePayload?.success && livePayload.latest && (
+          <>
+            <div style={{ color: theme.textMuted, fontSize: '12px', marginBottom: '12px' }}>
+              Latest row source: <strong style={{ color: theme.text }}>{livePayload.primary_source || 'unknown'}</strong>
+              {' · '}
+              Updated every 3s
+            </div>
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
+              gap: '12px',
+              marginBottom: '20px'
+            }}>
+              {Object.entries(livePayload.latest)
+                .filter(([k]) => k !== 'id' || livePayload.primary_source === 'plant_readings')
+                .map(([key, value]) => {
+                  if (key === 'id' && (value === null || value === undefined)) return null;
+                  return (
+                    <div
+                      key={key}
+                      style={{
+                        background: theme.surface,
+                        padding: '14px',
+                        borderRadius: '10px',
+                        border: `1px solid ${theme.border}`
+                      }}
+                    >
+                      <div style={{ color: theme.textMuted, fontSize: '11px', marginBottom: '4px' }}>
+                        {formatSensorLabel(key)}
+                      </div>
+                      <div style={{ color: theme.text, fontSize: '18px', fontWeight: 'bold' }}>
+                        {formatSensorValue(value)}
+                      </div>
+                    </div>
+                  );
+                })}
+            </div>
+          </>
+        )}
+
+        {livePayload?.success && !livePayload.latest && !liveError && (
+          <p style={{ color: theme.textMuted, fontSize: '14px', margin: 0 }}>
+            Database is connected but there are no readings yet. Start the serial collector or POST to <code style={{ background: theme.bg, padding: '2px 6px', borderRadius: '4px' }}>/api/readings</code>.
+          </p>
+        )}
+
+        {livePayload?.success && livePayload.project_readings?.length > 0 && (
+          <div style={{ marginTop: '8px' }}>
+            <h4 style={{ color: theme.text, fontSize: '14px', fontWeight: '600', marginBottom: '10px' }}>
+              Recent rows (project_readings)
+            </h4>
+            <div style={{ overflowX: 'auto', borderRadius: '10px', border: `1px solid ${theme.border}` }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', color: theme.text }}>
+                <thead>
+                  <tr style={{ background: theme.surface, textAlign: 'left' }}>
+                    {Object.keys(livePayload.project_readings[0]).slice(0, 12).map((col) => (
+                      <th key={col} style={{ padding: '8px 10px', borderBottom: `1px solid ${theme.border}`, whiteSpace: 'nowrap' }}>
+                        {formatSensorLabel(col)}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {livePayload.project_readings.slice(0, 12).map((row, idx) => (
+                    <tr key={row.id ?? idx} style={{ borderBottom: `1px solid ${theme.border}` }}>
+                      {Object.keys(livePayload.project_readings[0]).slice(0, 12).map((col) => (
+                        <td key={col} style={{ padding: '8px 10px' }}>{formatSensorValue(row[col])}</td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {livePayload?.success &&
+          (!livePayload.project_readings?.length) &&
+          livePayload.plant_readings?.length > 0 && (
+          <div style={{ marginTop: '8px' }}>
+            <h4 style={{ color: theme.text, fontSize: '14px', fontWeight: '600', marginBottom: '10px' }}>
+              Recent rows (plant_readings)
+            </h4>
+            <div style={{ overflowX: 'auto', borderRadius: '10px', border: `1px solid ${theme.border}` }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', color: theme.text }}>
+                <thead>
+                  <tr style={{ background: theme.surface, textAlign: 'left' }}>
+                    {Object.keys(livePayload.plant_readings[0]).slice(0, 10).map((col) => (
+                      <th key={col} style={{ padding: '8px 10px', borderBottom: `1px solid ${theme.border}`, whiteSpace: 'nowrap' }}>
+                        {formatSensorLabel(col)}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {livePayload.plant_readings.slice(0, 8).map((row, idx) => (
+                    <tr key={row.id ?? idx} style={{ borderBottom: `1px solid ${theme.border}` }}>
+                      {Object.keys(livePayload.plant_readings[0]).slice(0, 10).map((col) => (
+                        <td key={col} style={{ padding: '8px 10px' }}>{formatSensorValue(row[col])}</td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+      </div>
 
       {/* Connection Status */}
       <div style={{

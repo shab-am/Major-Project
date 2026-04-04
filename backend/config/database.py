@@ -4,12 +4,22 @@ Handles database connections and operations for plant readings
 """
 
 import mariadb
-import sys
 import os
+from decimal import Decimal
 from dotenv import load_dotenv
 
-# Load environment variables
 load_dotenv()
+
+
+def _serialize_value(v):
+    if v is None:
+        return None
+    if isinstance(v, Decimal):
+        return float(v)
+    if hasattr(v, "isoformat"):
+        return v.isoformat(sep=" ")
+    return v
+
 
 class Database:
     def __init__(self):
@@ -102,10 +112,56 @@ class Database:
             columns = [desc[0] for desc in self.cursor.description]
             results = []
             for row in self.cursor.fetchall():
-                results.append(dict(zip(columns, row)))
+                raw = dict(zip(columns, row))
+                results.append({k: _serialize_value(v) for k, v in raw.items()})
             return results
         except mariadb.Error as e:
             print(f"❌ Error fetching readings: {e}")
+            return []
+
+    def insert_project_reading(self, values):
+        """
+        Insert one row into project_readings (9 numeric fields from Arduino CSV).
+        Order: ambient_temperature, humidity, soil_temperature, light_intensity,
+        ph_value, dissolved_oxygen, ec_value, tds_value, electrochemical_signal
+        """
+        if not self.is_connected():
+            return None
+        try:
+            sql = """
+                INSERT INTO project_readings (
+                    ambient_temperature, humidity, soil_temperature, light_intensity,
+                    ph_value, dissolved_oxygen, ec_value, tds_value, electrochemical_signal
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """
+            self.cursor.execute(sql, values)
+            self.conn.commit()
+            return self.cursor.lastrowid
+        except mariadb.Error as e:
+            print(f"❌ Error inserting project_reading: {e}")
+            return None
+
+    def get_recent_project_readings(self, limit=100):
+        """Recent rows from project_readings (expects an id column for ordering)."""
+        if not self.is_connected():
+            return []
+        try:
+            self.cursor.execute(
+                """
+                SELECT * FROM project_readings
+                ORDER BY id DESC
+                LIMIT ?
+                """,
+                (limit,),
+            )
+            columns = [desc[0] for desc in self.cursor.description]
+            results = []
+            for row in self.cursor.fetchall():
+                raw = dict(zip(columns, row))
+                results.append({k: _serialize_value(v) for k, v in raw.items()})
+            return results
+        except mariadb.Error as e:
+            print(f"❌ Error fetching project_readings: {e}")
             return []
     
     def get_plant_statistics(self, plant_id=None):
@@ -145,7 +201,8 @@ class Database:
             columns = [desc[0] for desc in self.cursor.description]
             results = []
             for row in self.cursor.fetchall():
-                results.append(dict(zip(columns, row)))
+                raw = dict(zip(columns, row))
+                results.append({k: _serialize_value(v) for k, v in raw.items()})
             return results
         except mariadb.Error as e:
             print(f"❌ Error fetching statistics: {e}")

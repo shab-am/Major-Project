@@ -4,7 +4,7 @@
  */
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import apiService from './apiService';
+import apiService from '../services/apiService';
 
 export const useWebSocket = (url = '/signals') => {
   const [isConnected, setIsConnected] = useState(false);

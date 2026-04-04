@@ -44,7 +44,9 @@ def root():
             'run_script': '/api/python/run (POST)',
             'process_data': '/api/python/process (POST)',
             'readings': '/api/readings (GET, POST)',
-            'statistics': '/api/statistics (GET)'
+            'statistics': '/api/statistics (GET)',
+            'project_readings': '/api/project-readings (GET)',
+            'sensor_live': '/api/sensor/live (GET)'
         },
         'status': 'ready'
     })
@@ -248,7 +250,10 @@ def not_found(error):
             'GET /api/python/datasets',
             'GET /api/python/scripts',
             'POST /api/python/run',
-            'POST /api/python/process'
+            'POST /api/python/process',
+            'GET /api/readings',
+            'GET /api/project-readings',
+            'GET /api/sensor/live'
         ]
     }), 404
 
@@ -541,6 +546,75 @@ def get_statistics():
         return jsonify({
             'success': True,
             'data': stats
+        }), 200
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': str(e)
+        }), 500
+
+
+@app.route('/api/project-readings', methods=['GET'])
+def get_project_readings():
+    """Recent rows from project_readings (Arduino nine-field CSV pipeline)."""
+    try:
+        if not db or not db.is_connected():
+            return jsonify({
+                'success': False,
+                'message': 'Database not connected. Please configure MariaDB first.',
+                'data': [],
+                'count': 0
+            }), 503
+        limit = request.args.get('limit', 100, type=int)
+        limit = min(max(limit, 1), 500)
+        rows = db.get_recent_project_readings(limit)
+        return jsonify({
+            'success': True,
+            'data': rows,
+            'count': len(rows)
+        }), 200
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': str(e)
+        }), 500
+
+
+@app.route('/api/sensor/live', methods=['GET'])
+def sensor_live():
+    """Unified snapshot for the dashboard: project_readings + plant_readings."""
+    try:
+        if not db or not db.is_connected():
+            return jsonify({
+                'success': False,
+                'message': 'Database not connected. Please configure MariaDB first.',
+                'project_readings': [],
+                'plant_readings': [],
+                'latest': None,
+                'primary_source': None
+            }), 503
+        limit = request.args.get('limit', 50, type=int)
+        limit = min(max(limit, 1), 500)
+        project_rows = db.get_recent_project_readings(limit)
+        plant_rows = db.get_recent_readings(limit)
+        latest = None
+        primary = None
+        if project_rows:
+            latest = project_rows[0]
+            primary = 'project_readings'
+        elif plant_rows:
+            latest = plant_rows[0]
+            primary = 'plant_readings'
+        return jsonify({
+            'success': True,
+            'project_readings': project_rows,
+            'plant_readings': plant_rows,
+            'latest': latest,
+            'primary_source': primary,
+            'counts': {
+                'project_readings': len(project_rows),
+                'plant_readings': len(plant_rows)
+            }
         }), 200
     except Exception as e:
         return jsonify({

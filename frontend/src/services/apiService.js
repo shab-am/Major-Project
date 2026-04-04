@@ -26,6 +26,34 @@ class ApiService {
     }
   }
 
+  /**
+   * Live sensor snapshot from MariaDB (project_readings + plant_readings).
+   * Does not throw on 503 — returns parsed JSON so the UI can show DB-offline state.
+   */
+  async fetchSensorLive(limit = 50) {
+    const response = await fetch(
+      `${API_BASE_URL}/api/sensor/live?limit=${encodeURIComponent(limit)}`
+    );
+    const data = await response.json().catch(() => ({}));
+    return {
+      ...data,
+      _ok: response.ok,
+      _status: response.status
+    };
+  }
+
+  async fetchProjectReadings(limit = 100) {
+    const response = await fetch(
+      `${API_BASE_URL}/api/project-readings?limit=${encodeURIComponent(limit)}`
+    );
+    const data = await response.json().catch(() => ({}));
+    return {
+      ...data,
+      _ok: response.ok,
+      _status: response.status
+    };
+  }
+
   async postReading(data) {
     try {
       const response = await fetch(`${API_BASE_URL}/api/readings`, {

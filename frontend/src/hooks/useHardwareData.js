@@ -4,7 +4,7 @@
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { useWebSocket } from '../hooks/useWebSocket';
+import { useWebSocket } from './useWebSocket';
 import { validateSensorData, smoothData, detectOutliers } from '../utils/dataProcessing';
 import { SensorTypes, WebSocketMessageTypes } from '../types/hardwareTypes';
 

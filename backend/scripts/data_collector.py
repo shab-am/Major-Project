@@ -1,13 +1,21 @@
 """
 Hardware Data Collector Script
-Collects sensor data from Arduino/Raspberry Pi via Serial and stores in MariaDB
+Collects sensor data from Arduino/Raspberry Pi via Serial and stores in MariaDB.
+
+Supports:
+- Nine-value CSV -> project_readings (same format as legacy utils/sensor_service.py)
+- JSON or short CSV -> plant_readings via Database.insert_reading
 """
 
 import time
 import serial
 import sys
 import os
+import math
 from datetime import datetime
+from dotenv import load_dotenv
+
+load_dotenv()
 
 # Add parent directory to path for imports
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
@@ -88,6 +96,29 @@ def parse_sensor_data(line):
     
     return None
 
+
+def parse_project_nine_csv(line):
+    """
+    Arduino CSV with exactly 9 fields for project_readings:
+    ambient_temperature, humidity, soil_temperature, light_intensity,
+    ph_value, dissolved_oxygen, ec_value, tds_value, electrochemical_signal
+    """
+    parts = line.strip().split(',')
+    if len(parts) != 9:
+        return None
+
+    def to_null(val):
+        try:
+            f = float(val.strip())
+            if math.isnan(f):
+                return None
+            return f
+        except (ValueError, TypeError):
+            return None
+
+    return tuple(to_null(p) for p in parts)
+
+
 def get_ml_prediction(data):
     """Get ML prediction for plant health"""
     try:
@@ -134,8 +165,21 @@ def collect_and_store():
                     
                     if not line:
                         continue
+
+                    project_tuple = parse_project_nine_csv(line)
+                    if project_tuple is not None:
+                        if db and db.is_connected():
+                            reading_id = db.insert_project_reading(project_tuple)
+                            if reading_id:
+                                print(f"✅ Stored project_reading #{reading_id}: {project_tuple}")
+                            else:
+                                print("⚠️ Failed to store project_reading (check project_readings table)")
+                        else:
+                            print(f"📊 Project-format data (no DB): {project_tuple}")
+                        time.sleep(0.1)
+                        continue
                     
-                    # Parse sensor data
+                    # Parse sensor data for plant_readings
                     sensor_data = parse_sensor_data(line)
                     
                     if not sensor_data:
