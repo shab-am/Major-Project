@@ -1,8 +1,7 @@
 import React from 'react';
-import { Home, BarChart3, Leaf, Upload, Download, Code } from 'lucide-react';
+import { Home, BarChart3, Leaf, Download } from 'lucide-react';
 import './Sidebar.css';
-
-const Sidebar = ({ currentPage, setCurrentPage, exportToCSV, onImportClick, theme, isDarkMode }) => {
+const Sidebar = ({ currentPage, setCurrentPage, exportToCSV, theme, isDarkMode }) => {
   const sidebarStyle = {
     position: 'fixed',
     top: 0,
@@ -26,8 +25,6 @@ const Sidebar = ({ currentPage, setCurrentPage, exportToCSV, onImportClick, them
     color: theme.accent,
     marginBottom: 8
   };
-
-  // section title removed per request
 
   const itemStyle = (active) => ({
     display: 'flex',
@@ -54,21 +51,16 @@ const Sidebar = ({ currentPage, setCurrentPage, exportToCSV, onImportClick, them
       }}
     >
       <div style={brandStyle}>HydroMonitor</div>
-      {/* Removed "Pages" label to tighten spacing */}
       <button
         onClick={() => setCurrentPage('dashboard')}
         style={itemStyle(currentPage === 'dashboard')}
         onMouseEnter={(e) => {
           e.currentTarget.style.transform = 'scale(1.04)';
-          if (! (currentPage === 'dashboard')) {
-            e.currentTarget.style.background = `${theme.accent}20`;
-          }
+          if (!(currentPage === 'dashboard')) e.currentTarget.style.background = `${theme.accent}20`;
         }}
         onMouseLeave={(e) => {
           e.currentTarget.style.transform = 'scale(1)';
-          if (! (currentPage === 'dashboard')) {
-            e.currentTarget.style.background = 'transparent';
-          }
+          if (!(currentPage === 'dashboard')) e.currentTarget.style.background = 'transparent';
         }}
       >
         <Home size={18} /> Dashboard
@@ -78,15 +70,11 @@ const Sidebar = ({ currentPage, setCurrentPage, exportToCSV, onImportClick, them
         style={itemStyle(currentPage === 'biosignals')}
         onMouseEnter={(e) => {
           e.currentTarget.style.transform = 'scale(1.04)';
-          if (! (currentPage === 'biosignals')) {
-            e.currentTarget.style.background = `${theme.accent}20`;
-          }
+          if (!(currentPage === 'biosignals')) e.currentTarget.style.background = `${theme.accent}20`;
         }}
         onMouseLeave={(e) => {
           e.currentTarget.style.transform = 'scale(1)';
-          if (! (currentPage === 'biosignals')) {
-            e.currentTarget.style.background = 'transparent';
-          }
+          if (!(currentPage === 'biosignals')) e.currentTarget.style.background = 'transparent';
         }}
       >
         <BarChart3 size={18} /> Bio-Signals
@@ -96,15 +84,11 @@ const Sidebar = ({ currentPage, setCurrentPage, exportToCSV, onImportClick, them
         style={itemStyle(currentPage === 'analytics')}
         onMouseEnter={(e) => {
           e.currentTarget.style.transform = 'scale(1.04)';
-          if (! (currentPage === 'analytics')) {
-            e.currentTarget.style.background = `${theme.accent}20`;
-          }
+          if (!(currentPage === 'analytics')) e.currentTarget.style.background = `${theme.accent}20`;
         }}
         onMouseLeave={(e) => {
           e.currentTarget.style.transform = 'scale(1)';
-          if (! (currentPage === 'analytics')) {
-            e.currentTarget.style.background = 'transparent';
-          }
+          if (!(currentPage === 'analytics')) e.currentTarget.style.background = 'transparent';
         }}
       >
         <BarChart3 size={18} /> Analytics
@@ -114,15 +98,11 @@ const Sidebar = ({ currentPage, setCurrentPage, exportToCSV, onImportClick, them
         style={itemStyle(currentPage === 'mlModel')}
         onMouseEnter={(e) => {
           e.currentTarget.style.transform = 'scale(1.04)';
-          if (! (currentPage === 'mlModel')) {
-            e.currentTarget.style.background = `${theme.accent}20`;
-          }
+          if (!(currentPage === 'mlModel')) e.currentTarget.style.background = `${theme.accent}20`;
         }}
         onMouseLeave={(e) => {
           e.currentTarget.style.transform = 'scale(1)';
-          if (! (currentPage === 'mlModel')) {
-            e.currentTarget.style.background = 'transparent';
-          }
+          if (!(currentPage === 'mlModel')) e.currentTarget.style.background = 'transparent';
         }}
       >
         <Leaf size={18} /> ML Model
@@ -132,15 +112,11 @@ const Sidebar = ({ currentPage, setCurrentPage, exportToCSV, onImportClick, them
         style={itemStyle(currentPage === 'stress')}
         onMouseEnter={(e) => {
           e.currentTarget.style.transform = 'scale(1.04)';
-          if (! (currentPage === 'stress')) {
-            e.currentTarget.style.background = `${theme.accent}20`;
-          }
+          if (!(currentPage === 'stress')) e.currentTarget.style.background = `${theme.accent}20`;
         }}
         onMouseLeave={(e) => {
           e.currentTarget.style.transform = 'scale(1)';
-          if (! (currentPage === 'stress')) {
-            e.currentTarget.style.background = 'transparent';
-          }
+          if (!(currentPage === 'stress')) e.currentTarget.style.background = 'transparent';
         }}
       >
         <BarChart3 size={18} /> Stress Insights & Alerts
@@ -150,38 +126,15 @@ const Sidebar = ({ currentPage, setCurrentPage, exportToCSV, onImportClick, them
         style={itemStyle(currentPage === 'hardware')}
         onMouseEnter={(e) => {
           e.currentTarget.style.transform = 'scale(1.04)';
-          if (! (currentPage === 'hardware')) {
-            e.currentTarget.style.background = `${theme.accent}20`;
-          }
+          if (!(currentPage === 'hardware')) e.currentTarget.style.background = `${theme.accent}20`;
         }}
         onMouseLeave={(e) => {
           e.currentTarget.style.transform = 'scale(1)';
-          if (! (currentPage === 'hardware')) {
-            e.currentTarget.style.background = 'transparent';
-          }
+          if (!(currentPage === 'hardware')) e.currentTarget.style.background = 'transparent';
         }}
       >
         <BarChart3 size={18} /> Hardware Interface
       </button>
-      <button
-        onClick={() => setCurrentPage('settings')}
-        style={itemStyle(currentPage === 'settings')}
-        onMouseEnter={(e) => {
-          e.currentTarget.style.transform = 'scale(1.04)';
-          if (! (currentPage === 'settings')) {
-            e.currentTarget.style.background = `${theme.accent}20`;
-          }
-        }}
-        onMouseLeave={(e) => {
-          e.currentTarget.style.transform = 'scale(1)';
-          if (! (currentPage === 'settings')) {
-            e.currentTarget.style.background = 'transparent';
-          }
-        }}
-      >
-        <BarChart3 size={18} /> Settings
-      </button>
-      {/* Removed section title "Data" to reduce spacing */}
       <button
         onClick={exportToCSV}
         style={itemStyle(false)}
@@ -196,21 +149,6 @@ const Sidebar = ({ currentPage, setCurrentPage, exportToCSV, onImportClick, them
       >
         <Download size={18} /> Export CSV
       </button>
-      <button
-        onClick={onImportClick}
-        style={itemStyle(false)}
-        onMouseEnter={(e) => {
-          e.currentTarget.style.transform = 'scale(1.04)';
-          e.currentTarget.style.background = isDarkMode ? 'rgba(125, 211, 252, 0.08)' : 'rgba(2, 132, 199, 0.08)';
-        }}
-        onMouseLeave={(e) => {
-          e.currentTarget.style.transform = 'scale(1)';
-          e.currentTarget.style.background = 'transparent';
-        }}
-      >
-        <Upload size={18} /> Import CSV
-      </button>
-
       <div style={{ flex: 1 }} />
       <div style={{ fontSize: 12, color: theme.textMuted }}>Theme adapts to Dark/Light</div>
     </aside>
@@ -218,5 +156,3 @@ const Sidebar = ({ currentPage, setCurrentPage, exportToCSV, onImportClick, them
 };
 
 export default Sidebar;
-
-

@@ -9,6 +9,7 @@ from flask_socketio import SocketIO, emit
 import os
 import sys
 import traceback
+from collections import Counter
 
 # Add scripts directory to path
 sys.path.append(os.path.join(os.path.dirname(__file__), 'scripts'))
@@ -30,6 +31,153 @@ except Exception as e:
 DATA_DIR = os.path.join(os.path.dirname(__file__), 'data')
 SCRIPTS_DIR = os.path.join(os.path.dirname(__file__), 'scripts')
 MODELS_DIR = os.path.join(os.path.dirname(__file__), 'models')
+
+SPECIES_PROFILES = {
+    'Green Lettuce': {
+        'description': 'Crisp green lettuce grown in the main hydroponic rack.',
+        'optimal_ranges': {
+            'ph': {'min': 5.6, 'max': 6.4, 'label': '5.6-6.4'},
+            'temperature': {'min': 18.0, 'max': 24.0, 'label': '18-24 C'},
+            'humidity': {'min': 55.0, 'max': 72.0, 'label': '55-72 %'},
+            'tds': {'min': 560.0, 'max': 840.0, 'label': '560-840 ppm'},
+            'dissolved_oxygen': {'min': 5.0, 'max': 9.0, 'label': '5-9 mg/L'}
+        }
+    },
+    'Red Lettuce': {
+        'description': 'Red lettuce section with slightly cooler preferred temperatures.',
+        'optimal_ranges': {
+            'ph': {'min': 5.6, 'max': 6.4, 'label': '5.6-6.4'},
+            'temperature': {'min': 17.0, 'max': 23.0, 'label': '17-23 C'},
+            'humidity': {'min': 55.0, 'max': 72.0, 'label': '55-72 %'},
+            'tds': {'min': 560.0, 'max': 840.0, 'label': '560-840 ppm'},
+            'dissolved_oxygen': {'min': 5.0, 'max': 9.0, 'label': '5-9 mg/L'}
+        }
+    },
+    'Butterhead': {
+        'description': 'Butterhead lettuce group with the same nutrient reservoir.',
+        'optimal_ranges': {
+            'ph': {'min': 5.5, 'max': 6.3, 'label': '5.5-6.3'},
+            'temperature': {'min': 18.0, 'max': 24.0, 'label': '18-24 C'},
+            'humidity': {'min': 55.0, 'max': 70.0, 'label': '55-70 %'},
+            'tds': {'min': 600.0, 'max': 900.0, 'label': '600-900 ppm'},
+            'dissolved_oxygen': {'min': 5.0, 'max': 9.0, 'label': '5-9 mg/L'}
+        }
+    }
+}
+
+PLANT_ROSTER = [
+    {'plant_code': 'GL-01', 'display_name': 'Green Lettuce 1', 'species': 'Green Lettuce'},
+    {'plant_code': 'GL-02', 'display_name': 'Green Lettuce 2', 'species': 'Green Lettuce'},
+    {'plant_code': 'GL-03', 'display_name': 'Green Lettuce 3', 'species': 'Green Lettuce'},
+    {'plant_code': 'GL-04', 'display_name': 'Green Lettuce 4', 'species': 'Green Lettuce'},
+    {'plant_code': 'RL-01', 'display_name': 'Red Lettuce 1', 'species': 'Red Lettuce'},
+    {'plant_code': 'RL-02', 'display_name': 'Red Lettuce 2', 'species': 'Red Lettuce'},
+    {'plant_code': 'RL-03', 'display_name': 'Red Lettuce 3', 'species': 'Red Lettuce'},
+    {'plant_code': 'RL-04', 'display_name': 'Red Lettuce 4', 'species': 'Red Lettuce'},
+    {'plant_code': 'BH-01', 'display_name': 'Butterhead 1', 'species': 'Butterhead'},
+    {'plant_code': 'BH-02', 'display_name': 'Butterhead 2', 'species': 'Butterhead'},
+    {'plant_code': 'BH-03', 'display_name': 'Butterhead 3', 'species': 'Butterhead'},
+    {'plant_code': 'BH-04', 'display_name': 'Butterhead 4', 'species': 'Butterhead'},
+]
+
+
+def _number(value):
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _snapshot_from_row(row, project_mode):
+    if not row:
+        return {}
+    if project_mode:
+        return {
+            'ph': _number(row.get('ph_value')),
+            'temperature': _number(row.get('ambient_temperature')),
+            'humidity': _number(row.get('humidity')),
+            'tds': _number(row.get('tds_value')),
+            'dissolved_oxygen': _number(row.get('dissolved_oxygen')),
+            'soil_temperature': _number(row.get('soil_temperature')),
+            'light_intensity': _number(row.get('light_intensity')),
+            'ec': _number(row.get('ec_value')),
+            'electrochemical_signal': _number(row.get('electrochemical_signal'))
+        }
+    return {
+        'ph': _number(row.get('soil_ph') or row.get('ph')),
+        'temperature': _number(row.get('ambient_temperature') or row.get('temperature')),
+        'humidity': _number(row.get('humidity')),
+        'tds': _number(row.get('tds')),
+        'dissolved_oxygen': _number(row.get('dissolved_oxygen') or row.get('dissolvedOxy')),
+        'soil_temperature': _number(row.get('soil_temperature')),
+        'light_intensity': _number(row.get('light_intensity')),
+        'ec': _number(row.get('ec')),
+        'electrochemical_signal': _number(row.get('electrochemical_signal'))
+    }
+
+
+def _plant_health(snapshot, ranges):
+    issues = []
+    severity = 0
+    for metric_key in ('ph', 'temperature', 'humidity', 'tds', 'dissolved_oxygen'):
+        reading = snapshot.get(metric_key)
+        target = ranges.get(metric_key)
+        if reading is None or not target:
+            continue
+        if reading < target['min']:
+            severity += 1
+            issues.append(f"{metric_key} low")
+        elif reading > target['max']:
+            severity += 1
+            issues.append(f"{metric_key} high")
+
+    if severity == 0:
+        return 'Healthy', issues
+    if severity == 1:
+        return 'Moderate Stress', issues
+    return 'High Stress', issues
+
+
+def _build_live_setup(project_rows, plant_rows):
+    project_mode = bool(project_rows)
+    source_rows = project_rows if project_mode else plant_rows
+    latest_row = source_rows[0] if source_rows else None
+    latest_snapshot = _snapshot_from_row(latest_row, project_mode) if latest_row else {}
+
+    plants = []
+    for index, plant in enumerate(PLANT_ROSTER):
+        profile = SPECIES_PROFILES[plant['species']]
+        row = source_rows[index] if index < len(source_rows) else latest_row
+        snapshot = _snapshot_from_row(row, project_mode) if row else dict(latest_snapshot)
+        health_status, issues = _plant_health(snapshot, profile['optimal_ranges'])
+        plants.append({
+            **plant,
+            'description': profile['description'],
+            'optimal_ranges': profile['optimal_ranges'],
+            'health_status': health_status,
+            'issues': issues,
+            'metrics': snapshot,
+            'source_row_id': row.get('id') if row else None
+        })
+
+    health_counts = Counter(plant['health_status'] for plant in plants)
+    species_counts = Counter(plant['species'] for plant in plants)
+    averages = {}
+    for metric_key in ('ph', 'temperature', 'humidity', 'tds', 'dissolved_oxygen', 'ec', 'electrochemical_signal'):
+        values = [plant['metrics'].get(metric_key) for plant in plants]
+        values = [value for value in values if value is not None]
+        averages[metric_key] = round(sum(values) / len(values), 2) if values else None
+
+    return {
+        'plants': plants,
+        'setup_summary': {
+            'total_plants': len(plants),
+            'species_counts': dict(species_counts),
+            'health_counts': dict(health_counts),
+            'average_metrics': averages,
+            'active_species': list(species_counts.keys())
+        }
+    }
 
 @app.route('/', methods=['GET'])
 def root():
@@ -606,6 +754,7 @@ def sensor_live():
         elif plant_rows:
             latest = plant_rows[0]
             primary = 'plant_readings'
+        live_setup = _build_live_setup(project_rows, plant_rows)
 
         return jsonify({
             'success': True,
@@ -613,6 +762,8 @@ def sensor_live():
             'plant_readings': plant_rows,
             'latest': latest,
             'primary_source': primary,
+            'plants': live_setup['plants'],
+            'setup_summary': live_setup['setup_summary'],
             'counts': {
                 'project_readings': len(project_rows),
                 'plant_readings': len(plant_rows)
@@ -673,4 +824,3 @@ if __name__ == '__main__':
         print("⚠️ MariaDB database not connected (optional)")
     
     socketio.run(app, debug=True, host='0.0.0.0', port=5000)
-

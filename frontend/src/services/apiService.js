@@ -31,8 +31,18 @@ class ApiService {
    * Does not throw on 503 — returns parsed JSON so the UI can show DB-offline state.
    */
   async fetchSensorLive(limit = 50) {
+    const requestUrl = new URL(`${API_BASE_URL}/api/sensor/live`);
+    requestUrl.searchParams.set('limit', encodeURIComponent(limit));
+    requestUrl.searchParams.set('_ts', Date.now().toString());
     const response = await fetch(
-      `${API_BASE_URL}/api/sensor/live?limit=${encodeURIComponent(limit)}`
+      requestUrl.toString(),
+      {
+        cache: 'no-store',
+        headers: {
+          'Cache-Control': 'no-cache',
+          Pragma: 'no-cache'
+        }
+      }
     );
     const data = await response.json().catch(() => ({}));
     // Normalize older/alternate API shape { data: rows } → UI shape
@@ -191,4 +201,5 @@ class ApiService {
   }
 }
 
-export default new ApiService();
+const apiService = new ApiService();
+export default apiService;

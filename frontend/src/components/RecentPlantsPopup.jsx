@@ -1,23 +1,25 @@
 import React from 'react';
-import { X } from 'lucide-react';
+import { Leaf, X } from 'lucide-react';
 
-const RecentPlantsPopup = ({ isOpen, onClose, theme, isDarkMode, plantData, liveSnapshot, hasLiveDb }) => {
+const statusText = (status) => {
+  if (status === 'Moderate Stress') return 'Moderate';
+  if (status === 'High Stress') return 'Stressed';
+  return status;
+};
+
+const RecentPlantsPopup = ({ isOpen, onClose, theme, isDarkMode, plants = [] }) => {
   if (!isOpen) return null;
 
-  const recentPlants = [
-    { name: 'Bok Choy', status: 'Healthy', ph: 6.2, temp: 22, humidity: 65, tds: 1100, avatar: '🥬', lastUpdate: '2 hours ago' },
-    { name: 'Chili Plant', status: 'Moderate', ph: 6.8, temp: 25, humidity: 70, tds: 1500, avatar: '🌶️', lastUpdate: '4 hours ago' },
-    { name: 'Purple Basil', status: 'Healthy', ph: 5.8, temp: 20, humidity: 60, tds: 650, avatar: '🌿', lastUpdate: '1 hour ago' },
-    { name: 'Thai Basil', status: 'Stressed', ph: 7.1, temp: 28, humidity: 75, tds: 800, avatar: '🌱', lastUpdate: '3 hours ago' },
-    { name: 'Lemon Basil', status: 'Healthy', ph: 6.0, temp: 23, humidity: 62, tds: 600, avatar: '🍋', lastUpdate: '1.5 hours ago' },
-    { name: 'Brinjal', status: 'Moderate', ph: 6.4, temp: 26, humidity: 68, tds: 1600, avatar: '🍆', lastUpdate: '5 hours ago' },
-    { name: 'Bok Choy (2)', status: 'Healthy', ph: 6.1, temp: 21, humidity: 63, tds: 1050, avatar: '🥬', lastUpdate: '30 min ago' },
-    { name: 'Chili Plant (2)', status: 'Healthy', ph: 6.5, temp: 24, humidity: 67, tds: 1400, avatar: '🌶️', lastUpdate: '2.5 hours ago' },
-    { name: 'Purple Basil (2)', status: 'Moderate', ph: 6.9, temp: 27, humidity: 72, tds: 700, avatar: '🌿', lastUpdate: '6 hours ago' },
-    { name: 'Thai Basil (2)', status: 'Healthy', ph: 6.3, temp: 22, humidity: 58, tds: 750, avatar: '🌱', lastUpdate: '1 hour ago' },
-    { name: 'Lemon Basil (2)', status: 'Stressed', ph: 7.2, temp: 29, humidity: 78, tds: 650, avatar: '🍋', lastUpdate: '4.5 hours ago' },
-    { name: 'Brinjal (2)', status: 'Healthy', ph: 6.0, temp: 25, humidity: 65, tds: 1550, avatar: '🍆', lastUpdate: '3.5 hours ago' }
-  ];
+  const recentPlants = plants.map((plant) => ({
+    name: plant.display_name,
+    status: statusText(plant.health_status),
+    ph: plant.metrics?.ph != null ? Number(plant.metrics.ph).toFixed(2) : '—',
+    temp: plant.metrics?.temperature != null ? Number(plant.metrics.temperature).toFixed(1) : '—',
+    humidity: plant.metrics?.humidity != null ? Number(plant.metrics.humidity).toFixed(0) : '—',
+    tds: plant.metrics?.tds != null ? Number(plant.metrics.tds).toFixed(0) : '—',
+    avatarBg: plant.species === 'Green Lettuce' ? 'rgba(34,197,94,0.18)' : plant.species === 'Red Lettuce' ? 'rgba(244,63,94,0.18)' : 'rgba(250,204,21,0.18)',
+    avatarColor: plant.species === 'Green Lettuce' ? '#4ade80' : plant.species === 'Red Lettuce' ? '#fb7185' : '#facc15'
+  }));
 
   const popupOverlayStyle = {
     position: 'fixed',
@@ -127,29 +129,23 @@ const RecentPlantsPopup = ({ isOpen, onClose, theme, isDarkMode, plantData, live
     fontSize: '12px',
     fontWeight: '500',
     background:
-      status === 'Live'
-        ? 'rgba(52, 211, 153, 0.2)'
-        : status === 'Healthy'
-          ? 'rgba(211, 255, 92, 0.2)'
-          : status === 'Moderate'
-            ? 'rgba(255, 165, 0, 0.2)'
-            : 'rgba(255, 107, 107, 0.2)',
+      status === 'Healthy'
+        ? 'rgba(211, 255, 92, 0.2)'
+        : status === 'Moderate'
+          ? 'rgba(255, 165, 0, 0.2)'
+          : 'rgba(255, 107, 107, 0.2)',
     color:
-      status === 'Live'
-        ? '#34d399'
-        : status === 'Healthy'
-          ? '#d3ff5c'
-          : status === 'Moderate'
-            ? '#ffa500'
-            : '#ff6b6b',
+      status === 'Healthy'
+        ? '#d3ff5c'
+        : status === 'Moderate'
+          ? '#ffa500'
+          : '#ff6b6b',
     border: `1px solid ${
-      status === 'Live'
-        ? 'rgba(52, 211, 153, 0.35)'
-        : status === 'Healthy'
-          ? 'rgba(211, 255, 92, 0.3)'
-          : status === 'Moderate'
-            ? 'rgba(255, 165, 0, 0.3)'
-            : 'rgba(255, 107, 107, 0.3)'
+      status === 'Healthy'
+        ? 'rgba(211, 255, 92, 0.3)'
+        : status === 'Moderate'
+          ? 'rgba(255, 165, 0, 0.3)'
+          : 'rgba(255, 107, 107, 0.3)'
     }`
   });
 
@@ -181,31 +177,6 @@ const RecentPlantsPopup = ({ isOpen, onClose, theme, isDarkMode, plantData, live
     fontWeight: '600'
   };
 
-  const liveCard =
-    hasLiveDb && liveSnapshot
-      ? {
-          name: 'Live sensors (database)',
-          status: 'Live',
-          ph:
-            liveSnapshot.ph != null ? Number(liveSnapshot.ph).toFixed(2) : '—',
-          temp:
-            liveSnapshot.temperature != null
-              ? Number(liveSnapshot.temperature).toFixed(1)
-              : '—',
-          humidity:
-            liveSnapshot.humidity != null
-              ? Number(liveSnapshot.humidity).toFixed(0)
-              : '—',
-          tds:
-            liveSnapshot.tds != null ? Number(liveSnapshot.tds).toFixed(0) : '—',
-          avatar: '📡'
-        }
-      : null;
-
-  const gridPlants = liveCard
-    ? [liveCard, ...recentPlants]
-    : recentPlants;
-
   return (
     <div style={popupOverlayStyle} onClick={onClose}>
       <div style={popupContentStyle} onClick={(e) => e.stopPropagation()}>
@@ -228,7 +199,7 @@ const RecentPlantsPopup = ({ isOpen, onClose, theme, isDarkMode, plantData, live
         </div>
         <div style={contentStyle}>
           <div style={gridStyle}>
-            {gridPlants.map((plant, index) => (
+            {recentPlants.map((plant, index) => (
               <div 
                 key={plant.name + index} 
                 style={plantCardStyle}
@@ -244,7 +215,9 @@ const RecentPlantsPopup = ({ isOpen, onClose, theme, isDarkMode, plantData, live
                 }}
               >
                 <div style={plantHeaderStyle}>
-                  <div style={avatarStyle}>{plant.avatar}</div>
+                  <div style={{ ...avatarStyle, background: plant.avatarBg, color: plant.avatarColor, border: `1px solid ${plant.avatarColor}40` }}>
+                    <Leaf size={20} />
+                  </div>
                   <div style={{ flex: 1 }}>
                     <h3 style={plantNameStyle}>{plant.name}</h3>
                     <div style={statusBadgeStyle(plant.status)}>{plant.status}</div>
