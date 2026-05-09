@@ -190,6 +190,16 @@ const MLModelPage = ({
               <div style={{ color: '#d3ff5c', fontSize: '28px', fontWeight: 'bold' }}>{(modelInfo.metadata?.mean_f1_score * 100).toFixed(1)}%</div>
             </div>
             <div style={{ background: theme.surface, padding: '16px', borderRadius: '12px', border: `1px solid ${theme.border}`, textAlign: 'center' }}>
+              <div style={{ color: theme.textMuted, fontSize: '12px', marginBottom: '8px' }}>Silhouette</div>
+              <div style={{ color: '#7dd3fc', fontSize: '28px', fontWeight: 'bold' }}>
+                {modelInfo.metadata?.overall_silhouette_score != null
+                  ? modelInfo.metadata.overall_silhouette_score.toFixed(3)
+                  : modelInfo.metadata?.mean_silhouette_score != null
+                    ? modelInfo.metadata.mean_silhouette_score.toFixed(3)
+                    : 'N/A'}
+              </div>
+            </div>
+            <div style={{ background: theme.surface, padding: '16px', borderRadius: '12px', border: `1px solid ${theme.border}`, textAlign: 'center' }}>
               <div style={{ color: theme.textMuted, fontSize: '12px', marginBottom: '8px' }}>Classes</div>
               <div style={{ color: theme.text, fontSize: '28px', fontWeight: 'bold' }}>{modelInfo.metadata?.num_classes || 3}</div>
             </div>
@@ -201,6 +211,7 @@ const MLModelPage = ({
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: theme.textMuted }}>Features:</span><span style={{ color: theme.text, fontWeight: '600' }}>{modelInfo.metadata?.num_features || 'N/A'}</span></div>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: theme.textMuted }}>Epochs:</span><span style={{ color: theme.text, fontWeight: '600' }}>{modelInfo.metadata?.epochs || 200}</span></div>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: theme.textMuted }}>K-Fold CV:</span><span style={{ color: theme.text, fontWeight: '600' }}>{modelInfo.metadata?.k_folds || 5}</span></div>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: theme.textMuted }}>Mean Silhouette:</span><span style={{ color: theme.text, fontWeight: '600' }}>{modelInfo.metadata?.mean_silhouette_score != null ? modelInfo.metadata.mean_silhouette_score.toFixed(3) : 'N/A'}</span></div>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: theme.textMuted }}>Target Classes:</span><span style={{ color: theme.text, fontWeight: '600' }}>{modelInfo.metadata?.classes?.join(', ') || 'Healthy, Moderate Stress, High Stress'}</span></div>
               </div>
             </div>

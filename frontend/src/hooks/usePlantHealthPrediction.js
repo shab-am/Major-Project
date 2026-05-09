@@ -22,19 +22,15 @@ export const usePlantHealthPrediction = () => {
     try {
       // Map common field names to model expected names
       const mappedData = {
-        Timestamp: sensorData.timestamp || sensorData.date || new Date().toISOString(),
-        Plant_ID: sensorData.plantId || sensorData.plant_id || 1,
-        Soil_Moisture: sensorData.soilMoisture || sensorData.soil_moisture || sensorData.moisture || 0,
-        Ambient_Temperature: sensorData.temperature || sensorData.ambient_temperature || 0,
-        Soil_Temperature: sensorData.soilTemperature || sensorData.soil_temperature || sensorData.temperature || 0,
-        Humidity: sensorData.humidity || 0,
-        Light_Intensity: sensorData.lightIntensity || sensorData.light_intensity || 500,
-        Soil_pH: sensorData.ph || sensorData.soil_pH || sensorData.soilPh || 6.5,
-        Nitrogen_Level: sensorData.nitrogenLevel || sensorData.nitrogen_level || 30,
-        Phosphorus_Level: sensorData.phosphorusLevel || sensorData.phosphorus_level || 30,
-        Potassium_Level: sensorData.potassiumLevel || sensorData.potassium_level || 30,
-        Chlorophyll_Content: sensorData.chlorophyllContent || sensorData.chlorophyll_content || 35,
-        Electrochemical_Signal: sensorData.electrochemicalSignal || sensorData.electrochemical_signal || 1.0,
+        Ambient_Temperature: sensorData.temperature || sensorData.ambient_temperature || sensorData.Ambient_Temperature || 0,
+        Water_Temperature: sensorData.waterTemperature || sensorData.water_temperature || sensorData.soilTemperature || sensorData.soil_temperature || sensorData.Water_Temperature || sensorData.temperature || 0,
+        Humidity: sensorData.humidity || sensorData.Humidity || 0,
+        Light_Intensity: sensorData.lightIntensity || sensorData.light_intensity || sensorData.Light_Intensity || 500,
+        Water_pH: sensorData.ph || sensorData.water_ph || sensorData.soil_pH || sensorData.soilPh || sensorData.Water_pH || 6.5,
+        Dissolved_Oxygen_mg_L: sensorData.dissolvedOxy || sensorData.dissolved_oxygen || sensorData.dissolved_oxygen_mg_l || sensorData.Dissolved_Oxygen_mg_L || 5.5,
+        EC_mS_cm: sensorData.ec || sensorData.ec_value || sensorData.ec_ms_cm || sensorData.EC_mS_cm || 1.2,
+        TDS_ppm: sensorData.tds || sensorData.tds_value || sensorData.TDS_ppm || 650,
+        Electrochemical_Signal: sensorData.electrochemicalSignal || sensorData.electrochemical_signal || sensorData.Electrochemical_Signal || 1.0,
       };
 
       const result = await pythonService.predictPlantHealth(mappedData);
@@ -58,19 +54,15 @@ export const usePlantHealthPrediction = () => {
     
     try {
       const mappedData = sensorDataArray.map(sensorData => ({
-        Timestamp: sensorData.timestamp || sensorData.date || new Date().toISOString(),
-        Plant_ID: sensorData.plantId || sensorData.plant_id || 1,
-        Soil_Moisture: sensorData.soilMoisture || sensorData.soil_moisture || sensorData.moisture || 0,
-        Ambient_Temperature: sensorData.temperature || sensorData.ambient_temperature || 0,
-        Soil_Temperature: sensorData.soilTemperature || sensorData.soil_temperature || sensorData.temperature || 0,
-        Humidity: sensorData.humidity || 0,
-        Light_Intensity: sensorData.lightIntensity || sensorData.light_intensity || 500,
-        Soil_pH: sensorData.ph || sensorData.soil_pH || sensorData.soilPh || 6.5,
-        Nitrogen_Level: sensorData.nitrogenLevel || sensorData.nitrogen_level || 30,
-        Phosphorus_Level: sensorData.phosphorusLevel || sensorData.phosphorus_level || 30,
-        Potassium_Level: sensorData.potassiumLevel || sensorData.potassium_level || 30,
-        Chlorophyll_Content: sensorData.chlorophyllContent || sensorData.chlorophyll_content || 35,
-        Electrochemical_Signal: sensorData.electrochemicalSignal || sensorData.electrochemical_signal || 1.0,
+        Ambient_Temperature: sensorData.temperature || sensorData.ambient_temperature || sensorData.Ambient_Temperature || 0,
+        Water_Temperature: sensorData.waterTemperature || sensorData.water_temperature || sensorData.soilTemperature || sensorData.soil_temperature || sensorData.Water_Temperature || sensorData.temperature || 0,
+        Humidity: sensorData.humidity || sensorData.Humidity || 0,
+        Light_Intensity: sensorData.lightIntensity || sensorData.light_intensity || sensorData.Light_Intensity || 500,
+        Water_pH: sensorData.ph || sensorData.water_ph || sensorData.soil_pH || sensorData.soilPh || sensorData.Water_pH || 6.5,
+        Dissolved_Oxygen_mg_L: sensorData.dissolvedOxy || sensorData.dissolved_oxygen || sensorData.dissolved_oxygen_mg_l || sensorData.Dissolved_Oxygen_mg_L || 5.5,
+        EC_mS_cm: sensorData.ec || sensorData.ec_value || sensorData.ec_ms_cm || sensorData.EC_mS_cm || 1.2,
+        TDS_ppm: sensorData.tds || sensorData.tds_value || sensorData.TDS_ppm || 650,
+        Electrochemical_Signal: sensorData.electrochemicalSignal || sensorData.electrochemical_signal || sensorData.Electrochemical_Signal || 1.0,
       }));
 
       const result = await pythonService.predictPlantHealth(mappedData);
@@ -144,4 +136,3 @@ export const usePlantHealthPrediction = () => {
 };
 
 export default usePlantHealthPrediction;
-

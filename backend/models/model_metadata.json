@@ -1,40 +1,101 @@
 {
-  "mean_accuracy": 0.9383333333333332,
-  "std_accuracy": 0.01996524758451823,
-  "mean_f1_score": 0.9380047921752152,
-  "std_f1_score": 0.020235013674703473,
-  "num_features": 18,
-  "num_classes": 3,
-  "classes": [
-    "Healthy",
-    "High Stress",
-    "Moderate Stress"
-  ],
-  "feature_names": [
-    "Plant_ID",
-    "Soil_Moisture",
-    "Ambient_Temperature",
-    "Soil_Temperature",
-    "Humidity",
-    "Light_Intensity",
-    "Soil_pH",
-    "Nitrogen_Level",
-    "Phosphorus_Level",
-    "Potassium_Level",
-    "Chlorophyll_Content",
-    "Electrochemical_Signal",
-    "Timestamp_hour",
-    "Timestamp_day",
-    "Timestamp_month",
-    "Timestamp_weekday",
-    "Timestamp_hour_sin",
-    "Timestamp_hour_cos"
-  ],
+  "model_name": "hydroponics_dec_nam",
+  "training_mode": "DEC-NAM unsupervised clustering",
+  "dataset_path": "/home/hydroponics/Desktop/Major-Project/backend/data/plant_health_hydroponics_dataset.csv",
   "dataset_shape": [
     1200,
-    14
+    9
   ],
-  "k_folds": 5,
-  "epochs": 200,
-  "device": "cpu"
+  "device": "cpu",
+  "num_features": 12,
+  "feature_names": [
+    "EC_mS_cm",
+    "TDS_ppm",
+    "Dissolved_Oxygen_mg_L",
+    "Water_pH",
+    "Electrochemical_Signal",
+    "EC_mS_cm_dev",
+    "TDS_ppm_dev",
+    "Dissolved_Oxygen_mg_L_dev",
+    "Water_pH_dev",
+    "Electrochemical_Signal_dev",
+    "EC_TDS_ratio",
+    "DO_EC_ratio"
+  ],
+  "raw_feature_names": [
+    "Ambient_Temperature",
+    "Water_Temperature",
+    "Humidity",
+    "Light_Intensity",
+    "Water_pH",
+    "Dissolved_Oxygen_mg_L",
+    "EC_mS_cm",
+    "TDS_ppm",
+    "Electrochemical_Signal"
+  ],
+  "base_feature_names": [
+    "EC_mS_cm",
+    "TDS_ppm",
+    "Dissolved_Oxygen_mg_L",
+    "Water_pH",
+    "Electrochemical_Signal"
+  ],
+  "num_clusters": 3,
+  "num_classes": 3,
+  "classes": [
+    "High Stress",
+    "Healthy",
+    "Moderate Stress"
+  ],
+  "latent_dim": 16,
+  "pretrain_epochs": 300,
+  "dec_epochs": 200,
+  "gamma": 0.1,
+  "silhouette_score": 0.4547564685344696,
+  "overall_silhouette_score": 0.4547564685344696,
+  "ideal_values": {
+    "EC_mS_cm": 1.2,
+    "TDS_ppm": 650.0,
+    "Dissolved_Oxygen_mg_L": 6.5,
+    "Water_pH": 6.5,
+    "Electrochemical_Signal": 1.0
+  },
+  "cluster_labels": {
+    "1": "Healthy",
+    "2": "Moderate Stress",
+    "0": "High Stress"
+  },
+  "cluster_deviation_scores": {
+    "0": 1.3504002517948717,
+    "1": 0.22935685282051274,
+    "2": 1.073761154871795
+  },
+  "cluster_counts": {
+    "0": 296,
+    "1": 404,
+    "2": 500
+  },
+  "cluster_summary": {
+    "0": {
+      "EC_mS_cm": 1.989325,
+      "TDS_ppm": 997.858872,
+      "Dissolved_Oxygen_mg_L": 7.269603,
+      "Water_pH": 6.507647,
+      "Electrochemical_Signal": 0.962115
+    },
+    "1": {
+      "EC_mS_cm": 1.251482,
+      "TDS_ppm": 695.712321,
+      "Dissolved_Oxygen_mg_L": 5.78254,
+      "Water_pH": 6.498407,
+      "Electrochemical_Signal": 0.994495
+    },
+    "2": {
+      "EC_mS_cm": 0.749144,
+      "TDS_ppm": 452.224666,
+      "Dissolved_Oxygen_mg_L": 4.011239,
+      "Water_pH": 6.554605,
+      "Electrochemical_Signal": 0.997509
+    }
+  }
 }
