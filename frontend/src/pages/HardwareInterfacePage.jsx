@@ -1,7 +1,9 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Download, RefreshCw } from 'lucide-react';
 import PageHeader from '../components/PageHeader';
 import { useLiveSensor } from '../context/LiveSensorContext';
 import { omitTimeKeys, isTimeLikeKey } from '../utils/hideTimeFields';
+import { exportRowsToCsv } from '../utils/exportCsv';
 
 const getRowsFromPayload = (incomingPayload, incomingPrimarySource) => {
   const activePrimarySource =
@@ -24,21 +26,19 @@ const formatSensorValue = (value) => {
   return String(value);
 };
 
-export default function HardwareInterfacePage({
-  theme,
-  isDarkMode,
-  onToggleTheme,
-  notifications,
-  isNotificationsOpen,
-  onOpenNotifications,
-  onOpenStressInsights
-}) {
+const rowFingerprint = (row) => JSON.stringify(row);
+
+export default function HardwareInterfacePage({ theme, isDarkMode, embedded = false }) {
   const [manualRefreshAt, setManualRefreshAt] = useState(null);
   const [manualRefreshing, setManualRefreshing] = useState(false);
   const [highlightedRowIds, setHighlightedRowIds] = useState([]);
+  const [changedCells, setChangedCells] = useState({});
   const [tablePulse, setTablePulse] = useState(false);
   const [displayPayload, setDisplayPayload] = useState(null);
+  const [refreshNote, setRefreshNote] = useState(null);
+  const [tableVersion, setTableVersion] = useState(0);
   const previousTopRowIdsRef = useRef([]);
+  const previousRowsRef = useRef(new Map());
   const {
     payload,
     loading,
@@ -46,19 +46,32 @@ export default function HardwareInterfacePage({
     refetch,
     pollIntervalMs,
     hasLiveDb,
-    primarySource
+    primarySource,
+    rawRows
   } = useLiveSensor();
 
   useEffect(() => {
-    setDisplayPayload(payload);
-  }, [payload]);
+    if (!manualRefreshing) {
+      setDisplayPayload(payload);
+    }
+  }, [payload, manualRefreshing]);
 
   const activePayload = displayPayload || payload;
   const latest = activePayload?.latest || null;
   const sourceRows = useMemo(
     () => getRowsFromPayload(activePayload, primarySource),
-    [activePayload, primarySource]
+    // tableVersion forces re-read after manual refresh
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [activePayload, primarySource, tableVersion]
   );
+
+  useEffect(() => {
+    sourceRows.slice(0, 12).forEach((row) => {
+      previousRowsRef.current.set(row.id ?? rowFingerprint(row), { ...row });
+    });
+  }, [sourceRows]);
+
+  const topRowId = sourceRows[0]?.id ?? null;
 
   useEffect(() => {
     const nextTopRowIds = sourceRows
@@ -87,30 +100,73 @@ export default function HardwareInterfacePage({
   const handleManualRefresh = async () => {
     setManualRefreshing(true);
     setTablePulse(true);
-    const freshPayload = await refetch();
-    if (freshPayload) {
-      setDisplayPayload(freshPayload);
+    setRefreshNote(null);
+    const prevTopId = sourceRows[0]?.id ?? null;
+    const prevMap = new Map(previousRowsRef.current);
+
+    try {
+      const freshPayload = await refetch({ limit: 200 });
+      if (freshPayload) {
+        const freshRows = getRowsFromPayload(freshPayload, freshPayload.primary_source);
+        const cellChanges = {};
+        freshRows.slice(0, 12).forEach((row) => {
+          const id = row.id ?? rowFingerprint(row);
+          const prev = prevMap.get(id);
+          if (!prev) return;
+          const cols = Object.keys(row).filter((k) => !isTimeLikeKey(k));
+          cols.forEach((col) => {
+            if (formatSensorValue(row[col]) !== formatSensorValue(prev[col])) {
+              if (!cellChanges[id]) cellChanges[id] = new Set();
+              cellChanges[id].add(col);
+            }
+          });
+        });
+
+        const nextMap = new Map();
+        freshRows.slice(0, 12).forEach((row) => nextMap.set(row.id ?? rowFingerprint(row), row));
+        previousRowsRef.current = nextMap;
+
+        setDisplayPayload({ ...freshPayload, _refreshedAt: Date.now() });
+        setChangedCells(cellChanges);
+        setTableVersion((v) => v + 1);
+        setManualRefreshAt(new Date());
+        previousTopRowIdsRef.current = [];
+
+        const newTopId = freshRows[0]?.id ?? null;
+        if (newTopId != null && newTopId === prevTopId) {
+          const anyValueChange = Object.keys(cellChanges).length > 0;
+          setRefreshNote(
+            anyValueChange
+              ? 'Top row ID unchanged but values updated in place.'
+              : 'No newer rows yet — highest ID is still the same. New hardware writes will appear here.'
+          );
+        } else if (newTopId != null) {
+          setRefreshNote(`Loaded newer data — top row ID is now ${newTopId}.`);
+        }
+      }
+    } finally {
+      window.setTimeout(() => {
+        setManualRefreshing(false);
+        setTablePulse(false);
+        setChangedCells({});
+      }, 2500);
     }
-    setManualRefreshAt(new Date());
-    window.setTimeout(() => {
-      setManualRefreshing(false);
-      setTablePulse(false);
-    }, 350);
+  };
+
+  const handleExport = () => {
+    const rows = rawRows?.length ? rawRows : sourceRows;
+    if (!exportRowsToCsv(rows)) {
+      window.alert('No rows available to export yet.');
+    }
   };
 
   return (
-    <div style={{ marginBottom: '40px' }}>
-      <PageHeader
-        title="Hardware Interface"
-        subtitle="Database-backed hardware monitoring for the running collector"
-        theme={theme}
-        isDarkMode={isDarkMode}
-        onToggleTheme={onToggleTheme}
-        notifications={notifications}
-        isNotificationsOpen={isNotificationsOpen}
-        onOpenNotifications={onOpenNotifications}
-        onOpenStressInsights={onOpenStressInsights}
-      />
+    <div style={{ marginBottom: embedded ? 0 : '40px' }}>
+      {!embedded ? (
+        <PageHeader title="Hardware ingest" subtitle="Latest rows from the live sensor stream" theme={theme} />
+      ) : (
+        <h2 style={{ color: theme.text, fontSize: 18, fontWeight: 700, marginBottom: 16 }}>Hardware ingest</h2>
+      )}
 
       <div
         style={{
@@ -124,31 +180,54 @@ export default function HardwareInterfacePage({
       >
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px', marginBottom: '16px' }}>
           <div>
-            <h3 style={{ color: theme.text, fontSize: '20px', fontWeight: 'bold', margin: 0, marginBottom: '6px' }}>
-              Live sensor data (database)
+            <h3 style={{ color: theme.text, fontSize: '18px', fontWeight: 'bold', margin: 0 }}>
+              Recent readings
             </h3>
-            <p style={{ color: theme.textMuted, fontSize: '13px', margin: 0, maxWidth: '680px', lineHeight: 1.6 }}>
-              This page reads the same live API used across the app. The expected runtime flow is
-              <code style={{ background: theme.bg, padding: '2px 6px', borderRadius: '4px', marginLeft: 6 }}>data_collector.py</code>
-              to Flask API to MariaDB to frontend.
-            </p>
           </div>
-          <button
-            type="button"
-            onClick={handleManualRefresh}
-            style={{
-              padding: '8px 16px',
-              borderRadius: '8px',
-              border: `1px solid ${theme.border}`,
-              background: theme.surface,
-              color: theme.text,
-              fontSize: '13px',
-              fontWeight: '600',
-              cursor: 'pointer'
-            }}
-          >
-            {loading || manualRefreshing ? 'Refreshing...' : 'Refresh now'}
-          </button>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              onClick={handleManualRefresh}
+              disabled={loading || manualRefreshing}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+                padding: '8px 16px',
+                borderRadius: '8px',
+                border: `1px solid ${theme.border}`,
+                background: theme.surface,
+                color: theme.text,
+                fontSize: '13px',
+                fontWeight: '600',
+                cursor: loading || manualRefreshing ? 'wait' : 'pointer',
+                opacity: loading || manualRefreshing ? 0.7 : 1
+              }}
+            >
+              <RefreshCw size={15} className={manualRefreshing ? 'spin-icon' : ''} />
+              {loading || manualRefreshing ? 'Refreshing…' : 'Refresh table'}
+            </button>
+            <button
+              type="button"
+              onClick={handleExport}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+                padding: '8px 16px',
+                borderRadius: '8px',
+                border: `1px solid ${theme.accent}`,
+                background: theme.accentMuted,
+                color: theme.accent,
+                fontSize: '13px',
+                fontWeight: '600',
+                cursor: 'pointer'
+              }}
+            >
+              <Download size={15} />
+              Export CSV
+            </button>
+          </div>
         </div>
 
         {error && (
@@ -172,6 +251,12 @@ export default function HardwareInterfacePage({
           Auto-refresh every {Math.round(pollIntervalMs / 1000)}s
           {' · '}
           Status: <strong style={{ color: hasLiveDb ? '#4ade80' : theme.text }}>{hasLiveDb ? 'Receiving readings' : 'Waiting for readings'}</strong>
+          {topRowId != null && (
+            <>
+              {' · '}
+              Top row ID: <strong style={{ color: theme.text }}>{topRowId}</strong>
+            </>
+          )}
           {manualRefreshAt ? (
             <>
               {' · '}
@@ -179,6 +264,22 @@ export default function HardwareInterfacePage({
             </>
           ) : null}
         </div>
+
+        {refreshNote && (
+          <div
+            style={{
+              marginBottom: 12,
+              padding: '10px 12px',
+              borderRadius: 10,
+              background: theme.surface,
+              border: `1px solid ${theme.border}`,
+              color: theme.text,
+              fontSize: 12
+            }}
+          >
+            {refreshNote}
+          </div>
+        )}
 
         {manualRefreshing ? (
           <div
@@ -235,7 +336,7 @@ export default function HardwareInterfacePage({
         {sourceRows.length > 0 && (
           <div style={{ marginTop: '8px' }}>
             <h4 style={{ color: theme.text, fontSize: '14px', fontWeight: '600', marginBottom: '10px' }}>
-              Recent rows
+              Recent rows (newest first)
             </h4>
             <div
               style={{
@@ -263,92 +364,52 @@ export default function HardwareInterfacePage({
                       ))}
                   </tr>
                 </thead>
-                <tbody>
-                  {sourceRows.slice(0, 12).map((row, index) => (
-                    <tr
-                      key={row.id ?? index}
-                      style={{
-                        borderBottom: `1px solid ${theme.border}`,
-                        background: highlightedRowIds.includes(row.id ?? `row-${index}`)
-                          ? isDarkMode
-                            ? 'rgba(74, 222, 128, 0.12)'
-                            : 'rgba(34, 197, 94, 0.08)'
-                          : 'transparent',
-                        transition: 'background 0.35s ease'
-                      }}
-                    >
-                      {Object.keys(sourceRows[0])
-                        .filter((column) => !isTimeLikeKey(column))
-                        .slice(0, 12)
-                        .map((column) => (
-                          <td key={column} style={{ padding: '8px 10px' }}>
-                            {formatSensorValue(row[column])}
-                          </td>
-                        ))}
-                    </tr>
-                  ))}
+                <tbody key={`tbody-${tableVersion}`}>
+                  {sourceRows.slice(0, 12).map((row, index) => {
+                    const rowKey = row.id ?? `row-${index}`;
+                    return (
+                      <tr
+                        key={`${rowKey}-${tableVersion}`}
+                        style={{
+                          borderBottom: `1px solid ${theme.border}`,
+                          background: highlightedRowIds.includes(row.id ?? `row-${index}`)
+                            ? isDarkMode
+                              ? 'rgba(74, 222, 128, 0.12)'
+                              : 'rgba(34, 197, 94, 0.08)'
+                            : 'transparent',
+                          transition: 'background 0.35s ease'
+                        }}
+                      >
+                        {Object.keys(sourceRows[0])
+                          .filter((column) => !isTimeLikeKey(column))
+                          .slice(0, 12)
+                          .map((column) => {
+                            const changed = changedCells[rowKey]?.has(column);
+                            return (
+                              <td
+                                key={column}
+                                style={{
+                                  padding: '8px 10px',
+                                  background: changed
+                                    ? isDarkMode
+                                      ? 'rgba(251, 191, 36, 0.15)'
+                                      : 'rgba(251, 191, 36, 0.2)'
+                                    : undefined,
+                                  transition: 'background 0.3s ease'
+                                }}
+                              >
+                                {formatSensorValue(row[column])}
+                              </td>
+                            );
+                          })}
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
           </div>
         )}
-      </div>
-
-      <div
-        style={{
-          background: theme.surface,
-          borderRadius: '16px',
-          padding: '24px',
-          border: `1px solid ${theme.border}`
-        }}
-      >
-        <h3 style={{ color: theme.text, fontSize: '18px', fontWeight: 'bold', marginBottom: '16px' }}>
-          Setup Instructions
-        </h3>
-        <div style={{ display: 'grid', gap: '12px' }}>
-          <div>
-            <h4 style={{ color: theme.text, fontSize: '14px', fontWeight: '600', marginBottom: '8px' }}>
-              1. Start the backend
-            </h4>
-            <p style={{ color: theme.textMuted, fontSize: '13px', lineHeight: '1.6', margin: 0 }}>
-              Run the Flask server so the frontend can poll
-              <code style={{ background: theme.bg, padding: '2px 6px', borderRadius: '4px', marginLeft: 6 }}>/api/sensor/live</code>.
-            </p>
-          </div>
-          <div>
-            <h4 style={{ color: theme.text, fontSize: '14px', fontWeight: '600', marginBottom: '8px' }}>
-              2. Start the collector
-            </h4>
-            <p style={{ color: theme.textMuted, fontSize: '13px', lineHeight: '1.6', margin: 0 }}>
-              Run
-              <code style={{ background: theme.bg, padding: '2px 6px', borderRadius: '4px', marginLeft: 6 }}>backend/scripts/data_collector.py</code>
-              to read serial data or generate simulation values and write them into MariaDB.
-            </p>
-          </div>
-          <div>
-            <h4 style={{ color: theme.text, fontSize: '14px', fontWeight: '600', marginBottom: '8px' }}>
-              3. Serial data format
-            </h4>
-            <p style={{ color: theme.textMuted, fontSize: '13px', lineHeight: '1.6', margin: 0 }}>
-              The collector expects 9 comma-separated values in this exact order:
-              <code style={{ background: theme.bg, padding: '2px 6px', borderRadius: '4px', marginLeft: 6 }}>
-                ambient_temperature,humidity,soil_temperature,light_intensity,ph,dissolved_oxygen,ec,tds,electrochemical_signal
-              </code>
-            </p>
-          </div>
-          <div>
-            <h4 style={{ color: theme.text, fontSize: '14px', fontWeight: '600', marginBottom: '8px' }}>
-              4. Environment variables
-            </h4>
-            <p style={{ color: theme.textMuted, fontSize: '13px', lineHeight: '1.6', margin: 0 }}>
-              Configure
-              <code style={{ background: theme.bg, padding: '2px 6px', borderRadius: '4px', marginLeft: 6 }}>SERIAL_PORT</code>,
-              <code style={{ background: theme.bg, padding: '2px 6px', borderRadius: '4px', marginLeft: 6 }}>BAUD_RATE</code>,
-              <code style={{ background: theme.bg, padding: '2px 6px', borderRadius: '4px', marginLeft: 6 }}>SIMULATION_MODE</code>,
-              and your MariaDB credentials in the backend env file.
-            </p>
-          </div>
-        </div>
       </div>
     </div>
   );

@@ -8,9 +8,26 @@ import React, {
   useState
 } from 'react';
 import apiService from '../services/apiService';
+import { withGenericPlantLabels } from '../utils/plantNames';
+import {
+  assessDataQuality,
+  metricBandSummary,
+  rowsToSeries,
+  DEFAULT_OPTIMAL
+} from '../utils/sensorAnalytics';
 
-const POLL_MS = 3000;
+const POLL_MS = 5000;
 const LiveSensorContext = createContext(null);
+
+function wantsStressDemoSensorStream() {
+  if (typeof window === 'undefined') return false;
+  if (process.env.REACT_APP_SENSOR_STRESS_DEMO === 'true') return true;
+  try {
+    return window.localStorage?.getItem('hydroStressDemo') === '1';
+  } catch (_) {
+    return false;
+  }
+}
 
 function isProjectSource(payload) {
   return (payload?.project_readings?.length ?? 0) > 0;
@@ -48,7 +65,8 @@ function latestToSnapshot(latest, projectMode) {
     ec: projectMode ? latest.ec_value ?? null : latest.ec ?? null,
     electrochemical: latest.electrochemical_signal ?? null,
     soilTemp: latest.soil_temperature ?? null,
-    light: latest.light_intensity ?? null
+    light: latest.light_intensity ?? null,
+    recordedAt: latest.recorded_at ?? latest.timestamp ?? null
   };
 }
 
@@ -58,12 +76,14 @@ export function LiveSensorProvider({ children }) {
   const [error, setError] = useState(null);
   const mounted = useRef(true);
 
-  const refetch = useCallback(async () => {
-    if (mounted.current) {
-      setLoading(true);
-    }
+  const refetch = useCallback(async (options = {}) => {
+    const limit = options.limit ?? 200;
+    if (mounted.current) setLoading(true);
     try {
-      const data = await apiService.fetchSensorLive(200);
+      const data = await apiService.fetchSensorLive(limit, {
+        ...options,
+        stressDemo: options.stressDemo ?? wantsStressDemoSensorStream()
+      });
       if (!mounted.current) return;
       setPayload(data);
       setError(data._ok ? null : data.message || `Server returned ${data._status}`);
@@ -98,43 +118,38 @@ export function LiveSensorProvider({ children }) {
       rowToAnalyticsLive(row, projectMode)
     );
     const latestSnapshot = latestToSnapshot(payload?.latest, projectMode);
+    const series = rowsToSeries(primaryRows, projectMode);
+    const bandSummary = metricBandSummary(series, DEFAULT_OPTIMAL);
+    const dataQuality = assessDataQuality(primaryRows, projectMode);
 
-    const plants = (payload?.plants || []).map((plant) => ({
-      ...plant,
-      metrics: {
-        ...plant.metrics,
-        ph: plant.metrics?.ph ?? null,
-        temperature: plant.metrics?.temperature ?? null,
-        humidity: plant.metrics?.humidity ?? null,
-        tds: plant.metrics?.tds ?? null,
-        dissolved_oxygen: plant.metrics?.dissolved_oxygen ?? null,
-        electrochemical_signal: plant.metrics?.electrochemical_signal ?? null
-      }
-    }));
+    const plants = withGenericPlantLabels(
+      (payload?.plants || []).map((plant) => ({
+        ...plant,
+        metrics: {
+          ...plant.metrics,
+          ph: plant.metrics?.ph ?? null,
+          temperature: plant.metrics?.temperature ?? null,
+          humidity: plant.metrics?.humidity ?? null,
+          tds: plant.metrics?.tds ?? null,
+          dissolved_oxygen: plant.metrics?.dissolved_oxygen ?? null,
+          electrochemical_signal: plant.metrics?.electrochemical_signal ?? null
+        }
+      }))
+    );
 
-    const bioSeriesElectrochemical = chronologicalRows
-      .map((row, index) => ({
-        readingLabel: `#${index + 1}`,
-        value:
-          row.electrochemical_signal != null
-            ? Number(row.electrochemical_signal)
-            : null
+    const bioSeriesElectrochemical = series
+      .map((point) => ({
+        readingLabel: point.readingLabel,
+        value: point.electrochemical_signal
       }))
       .filter((point) => point.value != null && !Number.isNaN(point.value));
-
-    const bioSeriesPh = chronologicalRows
-      .map((row, index) => ({
-        readingLabel: `#${index + 1}`,
-        value: Number(projectMode ? row.ph_value : row.soil_ph ?? row.ph)
-      }))
-      .filter((point) => !Number.isNaN(point.value));
 
     const dashboardTrend = chronologicalRows.map((row, index) => ({
       label: `#${index + 1}`,
       temp: Number(projectMode ? row.ambient_temperature : row.ambient_temperature ?? row.temperature),
       ph: Number(projectMode ? row.ph_value : row.soil_ph ?? row.ph),
       readingId: row.id ?? index + 1
-    }));
+    })).filter((row) => !Number.isNaN(row.temp) || !Number.isNaN(row.ph));
 
     return {
       payload,
@@ -142,16 +157,18 @@ export function LiveSensorProvider({ children }) {
       error,
       refetch,
       pollIntervalMs: POLL_MS,
-      hasLiveDb: Boolean(payload?.success && primaryRows.length > 0),
+      hasLiveDb: Boolean(payload?.success && primaryRows.length > 0 && !payload?.demo_mode),
+      hasData: Boolean(payload?.success && primaryRows.length > 0),
       primarySource: payload?.primary_source || null,
       latestSnapshot,
       analyticsLiveRows,
+      sensorSeries: series,
+      dashboardTrend,
+      bandSummary,
+      dataQuality,
       bioSeriesElectrochemical,
-      bioSeriesPh,
-      dashboardTrend: dashboardTrend.filter(
-        (row) => !Number.isNaN(row.temp) || !Number.isNaN(row.ph)
-      ),
       plants,
+      outOfRangeValues: payload?.out_of_range_values || [],
       setupSummary: payload?.setup_summary || null,
       rawRows: primaryRows
     };

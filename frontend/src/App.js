@@ -1,61 +1,27 @@
 import React, { useMemo, useRef, useState } from 'react';
-import Sidebar from './components/Sidebar';
+import Navbar from './components/Navbar';
 import Dashboard from './components/Dashboard';
-import RecentPlantsPopup from './components/RecentPlantsPopup';
 import AnalyticsPage from './pages/AnalyticsPage';
-import BioSignalsPage from './pages/BioSignalsPage';
-import HardwareInterfacePage from './pages/HardwareInterfacePage';
-import MLModelPage from './pages/MLModelPage';
 import StressInsightsPage from './pages/StressInsightsPage';
+import SystemsPage from './pages/SystemsPage';
+import MLAnalysisPage from './pages/MLAnalysisPage';
 import { getTheme } from './theme';
 import { useLiveSensor } from './context/LiveSensorContext';
-import './components/Sidebar.css';
+import './components/Navbar.css';
 
 const PAGE_COMPONENTS = {
   dashboard: Dashboard,
-  biosignals: BioSignalsPage,
-  analytics: AnalyticsPage,
-  mlModel: MLModelPage,
   stress: StressInsightsPage,
-  hardware: HardwareInterfacePage
+  analytics: AnalyticsPage,
+  systems: SystemsPage,
+  mlAnalysis: MLAnalysisPage
 };
-
-function exportRowsToCsv(rows) {
-  if (!rows.length) return;
-  const headers = Array.from(
-    rows.reduce((set, row) => {
-      Object.keys(row).forEach((key) => set.add(key));
-      return set;
-    }, new Set())
-  );
-  const csvLines = [
-    headers.join(','),
-    ...rows.map((row) =>
-      headers
-        .map((header) => {
-          const value = row[header];
-          if (value === null || value === undefined) return '';
-          const text = String(value).replace(/"/g, '""');
-          return /[",\n]/.test(text) ? `"${text}"` : text;
-        })
-        .join(',')
-    )
-  ];
-  const blob = new Blob([csvLines.join('\n')], { type: 'text/csv;charset=utf-8' });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = `hydromonitor-live-${new Date().toISOString().slice(0, 10)}.csv`;
-  link.click();
-  URL.revokeObjectURL(url);
-}
 
 export default function App() {
   const [currentPage, setCurrentPage] = useState('dashboard');
   const [isDarkMode, setIsDarkMode] = useState(true);
-  const [showRecentPlantsPopup, setShowRecentPlantsPopup] = useState(false);
-  const mainContentRef = useRef(null);
   const [showNotifications, setShowNotifications] = useState(false);
+  const mainContentRef = useRef(null);
 
   const theme = getTheme(isDarkMode);
   const {
@@ -63,47 +29,100 @@ export default function App() {
     setupSummary,
     latestSnapshot,
     analyticsLiveRows,
-    dashboardTrend,
+    sensorSeries,
+    dataQuality,
+    hasData,
     hasLiveDb,
     pollIntervalMs,
-    rawRows,
-    payload
+    dashboardTrend,
+    payload,
+    outOfRangeValues
   } = useLiveSensor();
 
   const CurrentPage = PAGE_COMPONENTS[currentPage] || Dashboard;
 
-  const notifications = useMemo(() => {
-    return plants
-      .filter((plant) => Array.isArray(plant.issues) && plant.issues.length > 0)
-      .map((plant) => ({
-        id: plant.plant_code,
-        title: `${plant.display_name} needs attention`,
-        body: plant.issues.join(', '),
-        severity: plant.health_status
-      }));
-  }, [plants]);
+  const notifications = useMemo(
+    () => {
+      if (outOfRangeValues.length > 0) {
+        const grouped = new Map();
+        outOfRangeValues.forEach((item) => {
+          const plantCode = item.plant_code || item.plant_name || 'active-alert';
+          const entry = grouped.get(plantCode) || {
+            id: plantCode,
+            plantCode,
+            plantName: item.plant_name || 'Plant',
+            severity: item.health_status,
+            issue: item.issue,
+            metrics: [],
+            sourceRowId: item.source_row_id
+          };
+          entry.metrics.push({
+            label: item.label || item.metric,
+            value: item.value,
+            target: item.target || `${item.min}-${item.max}`,
+            direction: item.direction
+          });
+          grouped.set(plantCode, entry);
+        });
+
+        return Array.from(grouped.values())
+          .map((entry) => ({
+            ...entry,
+            title: `${entry.plantName}: ${entry.metrics.length} range alert${entry.metrics.length === 1 ? '' : 's'}`,
+            body: entry.metrics
+              .map((metric) => `${metric.label} ${metric.direction} (${metric.value} / ${metric.target})`)
+              .join(', ')
+          }))
+          .slice(0, 1);
+      }
+
+      return plants
+        .filter((plant) => Array.isArray(plant.issues) && plant.issues.length > 0)
+        .map((plant) => ({
+          id: plant.plant_code,
+          plantCode: plant.plant_code,
+          plantName: plant.display_name,
+          title: `${plant.display_name}: ${plant.issues.length} stress flag${plant.issues.length === 1 ? '' : 's'}`,
+          body: plant.issues.map((issue) => issue.replace(/_/g, ' ')).join(', '),
+          severity: plant.health_status,
+          issue: plant.issues[0],
+          issues: plant.issues
+        }))
+        .slice(0, 1);
+    },
+    [outOfRangeValues, plants]
+  );
+
+  const goToPage = (page) => {
+    setCurrentPage(page);
+    setShowNotifications(false);
+    try {
+      mainContentRef.current?.scrollTo({ top: 0, behavior: 'auto' });
+      window.scrollTo({ top: 0, behavior: 'auto' });
+    } catch (_) {}
+  };
 
   const sharedPageProps = useMemo(
     () => ({
       theme,
       isDarkMode,
-      onToggleTheme: () => setIsDarkMode((value) => !value),
+      onToggleTheme: () => setIsDarkMode((v) => !v),
       plants,
       setupSummary,
       latestSnapshot,
       analyticsLiveRows,
-      dashboardTrend,
+      sensorSeries,
+      dataQuality,
+      hasData,
       hasLiveDb,
       livePollMs: pollIntervalMs,
-      onViewAllPlants: () => setShowRecentPlantsPopup(true),
+      dashboardTrend,
       payload,
+      outOfRangeValues,
       notifications,
       isNotificationsOpen: showNotifications,
-      onOpenNotifications: () => setShowNotifications((value) => !value),
-      onOpenStressInsights: () => {
-        setCurrentPage('stress');
-        setShowNotifications(false);
-      }
+      onOpenNotifications: () => setShowNotifications((v) => !v),
+      onOpenStressInsights: () => goToPage('stress')
     }),
     [
       theme,
@@ -112,10 +131,14 @@ export default function App() {
       setupSummary,
       latestSnapshot,
       analyticsLiveRows,
-      dashboardTrend,
+      sensorSeries,
+      dataQuality,
+      hasData,
       hasLiveDb,
       pollIntervalMs,
+      dashboardTrend,
       payload,
+      outOfRangeValues,
       notifications,
       showNotifications
     ]
@@ -130,40 +153,22 @@ export default function App() {
         transition: 'background 0.2s ease, color 0.2s ease'
       }}
     >
-      <Sidebar
+      <Navbar
         currentPage={currentPage}
-        setCurrentPage={(page) => {
-          setCurrentPage(page);
-          try {
-            mainContentRef.current?.scrollTo({ top: 0, behavior: 'auto' });
-            window.scrollTo({ top: 0, behavior: 'auto' });
-          } catch (_) {}
-        }}
-        exportToCSV={() => exportRowsToCsv(rawRows)}
+        setCurrentPage={goToPage}
         theme={theme}
         isDarkMode={isDarkMode}
+        onToggleTheme={() => setIsDarkMode((v) => !v)}
+        notifications={notifications}
+        isNotificationsOpen={showNotifications}
+        onOpenNotifications={() => setShowNotifications((v) => !v)}
+        onOpenStressInsights={() => goToPage('stress')}
+        onOpenMLAnalysis={() => goToPage('mlAnalysis')}
       />
 
-      <main
-        ref={mainContentRef}
-        className="main-content"
-        style={{
-          maxWidth: '1260px',
-          marginLeft: 280,
-          padding: '8px 16px 40px'
-        }}
-      >
+      <main ref={mainContentRef} className="app-main">
         <CurrentPage {...sharedPageProps} />
       </main>
-
-      <RecentPlantsPopup
-        isOpen={showRecentPlantsPopup}
-        onClose={() => setShowRecentPlantsPopup(false)}
-        theme={theme}
-        isDarkMode={isDarkMode}
-        plants={plants}
-        setupSummary={setupSummary}
-      />
     </div>
   );
 }

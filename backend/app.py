@@ -24,7 +24,7 @@ try:
     from database import Database
     db = Database()
 except Exception as e:
-    print(f"⚠️ Database not available: {e}")
+    print(f"WARNING: Database not available: {e}")
     db = None
 
 # Configuration
@@ -116,20 +116,44 @@ def _snapshot_from_row(row, project_mode):
     }
 
 
-def _plant_health(snapshot, ranges):
-    issues = []
-    severity = 0
+def _range_violations(snapshot, ranges):
+    violations = []
     for metric_key in ('ph', 'temperature', 'humidity', 'tds', 'dissolved_oxygen'):
         reading = snapshot.get(metric_key)
         target = ranges.get(metric_key)
         if reading is None or not target:
             continue
+
         if reading < target['min']:
-            severity += 1
-            issues.append(f"{metric_key} low")
+            violations.append({
+                'metric': metric_key,
+                'label': metric_key.replace('_', ' ').title(),
+                'value': reading,
+                'min': target['min'],
+                'max': target['max'],
+                'target': target.get('label'),
+                'direction': 'low',
+                'issue': f"{metric_key} low"
+            })
         elif reading > target['max']:
-            severity += 1
-            issues.append(f"{metric_key} high")
+            violations.append({
+                'metric': metric_key,
+                'label': metric_key.replace('_', ' ').title(),
+                'value': reading,
+                'min': target['min'],
+                'max': target['max'],
+                'target': target.get('label'),
+                'direction': 'high',
+                'issue': f"{metric_key} high"
+            })
+
+    return violations
+
+
+def _plant_health(snapshot, ranges):
+    violations = _range_violations(snapshot, ranges)
+    issues = [violation['issue'] for violation in violations]
+    severity = len(violations)
 
     if severity == 0:
         return 'Healthy', issues
@@ -145,17 +169,32 @@ def _build_live_setup(project_rows, plant_rows):
     latest_snapshot = _snapshot_from_row(latest_row, project_mode) if latest_row else {}
 
     plants = []
+    out_of_range_values = []
     for index, plant in enumerate(PLANT_ROSTER):
         profile = SPECIES_PROFILES[plant['species']]
         row = source_rows[index] if index < len(source_rows) else latest_row
         snapshot = _snapshot_from_row(row, project_mode) if row else dict(latest_snapshot)
         health_status, issues = _plant_health(snapshot, profile['optimal_ranges'])
+        violations = []
+        for violation in _range_violations(snapshot, profile['optimal_ranges']):
+            enriched = {
+                **violation,
+                'id': f"{plant['plant_code']}-{violation['metric']}-{violation['direction']}",
+                'plant_code': plant['plant_code'],
+                'plant_name': plant['display_name'],
+                'species': plant['species'],
+                'health_status': health_status,
+                'source_row_id': row.get('id') if row else None
+            }
+            violations.append(enriched)
+            out_of_range_values.append(enriched)
         plants.append({
             **plant,
             'description': profile['description'],
             'optimal_ranges': profile['optimal_ranges'],
             'health_status': health_status,
             'issues': issues,
+            'out_of_range_values': violations,
             'metrics': snapshot,
             'source_row_id': row.get('id') if row else None
         })
@@ -170,10 +209,12 @@ def _build_live_setup(project_rows, plant_rows):
 
     return {
         'plants': plants,
+        'out_of_range_values': out_of_range_values,
         'setup_summary': {
             'total_plants': len(plants),
             'species_counts': dict(species_counts),
             'health_counts': dict(health_counts),
+            'out_of_range_count': len(out_of_range_values),
             'average_metrics': averages,
             'active_species': list(species_counts.keys())
         }
@@ -728,47 +769,104 @@ def get_project_readings():
         }), 500
 
 
+def _sensor_live_payload(project_rows, plant_rows, demo_mode=False, message=None):
+    latest = None
+    primary = None
+    if project_rows:
+        latest = project_rows[0]
+        primary = 'project_readings'
+    elif plant_rows:
+        latest = plant_rows[0]
+        primary = 'plant_readings'
+    live_setup = _build_live_setup(project_rows, plant_rows)
+    body = {
+        'success': True,
+        'demo_mode': demo_mode,
+        'project_readings': project_rows,
+        'plant_readings': plant_rows,
+        'latest': latest,
+        'primary_source': primary,
+        'plants': live_setup['plants'],
+        'out_of_range_values': live_setup['out_of_range_values'],
+        'setup_summary': live_setup['setup_summary'],
+        'counts': {
+            'project_readings': len(project_rows),
+            'plant_readings': len(plant_rows)
+        }
+    }
+    if message:
+        body['message'] = message
+    return body
+
+
+@app.route('/api/config', methods=['GET'])
+def app_config():
+    """Runtime flags for the React UI."""
+    from demo_data import demo_enabled_from_env
+    return jsonify({
+        'demo_default': demo_enabled_from_env(),
+        'db_connected': bool(db and db.is_connected())
+    }), 200
+
+
 @app.route('/api/sensor/live', methods=['GET'])
 def sensor_live():
     """Snapshot for the React UI: project_readings, plant_readings, and latest row."""
     try:
-        if not db or not db.is_connected():
-            return jsonify({
-                'success': False,
-                'message': 'Database not connected. Please configure MariaDB first.',
-                'project_readings': [],
-                'plant_readings': [],
-                'latest': None,
-                'primary_source': None
-            }), 503
+        from demo_data import (
+            is_demo_requested,
+            is_stress_demo_requested,
+            generate_demo_project_readings,
+            generate_stress_demo_project_readings,
+        )
 
         limit = request.args.get('limit', 50, type=int)
         limit = min(max(limit, 1), 500)
+        force_demo = is_demo_requested(request.args)
+        demo_tick = None
+        ts_raw = request.args.get('_ts')
+        if ts_raw:
+            try:
+                demo_tick = int(float(ts_raw)) // 30000
+            except (TypeError, ValueError):
+                demo_tick = None
+
+        if is_stress_demo_requested(request.args):
+            project_rows = generate_stress_demo_project_readings(limit, refresh_tick=demo_tick)
+            return jsonify(_sensor_live_payload(
+                project_rows, [],
+                demo_mode=True,
+                message='Stress-test stream: readings are intentionally out of band for alert UI testing (stress_demo=1).'
+            )), 200
+
+        if force_demo:
+            project_rows = generate_demo_project_readings(limit, refresh_tick=demo_tick)
+            return jsonify(_sensor_live_payload(
+                project_rows, [],
+                demo_mode=True,
+                message='Demo stream — disable demo mode to use live MariaDB.'
+            )), 200
+
+        if not db or not db.is_connected():
+            project_rows = generate_demo_project_readings(limit, refresh_tick=demo_tick)
+            return jsonify(_sensor_live_payload(
+                project_rows, [],
+                demo_mode=True,
+                message='Database offline — showing demo data. Connect MariaDB or set USE_DEMO_DATA=false to hide.'
+            )), 200
+
         project_rows = db.get_recent_project_readings(limit)
         plant_rows = db.get_recent_readings(limit)
-        latest = None
-        primary = None
-        if project_rows:
-            latest = project_rows[0]
-            primary = 'project_readings'
-        elif plant_rows:
-            latest = plant_rows[0]
-            primary = 'plant_readings'
-        live_setup = _build_live_setup(project_rows, plant_rows)
 
-        return jsonify({
-            'success': True,
-            'project_readings': project_rows,
-            'plant_readings': plant_rows,
-            'latest': latest,
-            'primary_source': primary,
-            'plants': live_setup['plants'],
-            'setup_summary': live_setup['setup_summary'],
-            'counts': {
-                'project_readings': len(project_rows),
-                'plant_readings': len(plant_rows)
-            }
-        }), 200
+        if not project_rows and not plant_rows:
+            project_rows = generate_demo_project_readings(limit, refresh_tick=demo_tick)
+            return jsonify(_sensor_live_payload(
+                project_rows, [],
+                demo_mode=True,
+                message='No rows in database — showing demo data until hardware writes readings.'
+            )), 200
+
+        return jsonify(_sensor_live_payload(project_rows, plant_rows)), 200
 
     except Exception as e:
         return jsonify({
@@ -819,8 +917,15 @@ if __name__ == '__main__':
     print(f"WebSocket server will run on ws://localhost:5000")
     
     if db and db.is_connected():
-        print("✅ MariaDB database connected")
+        print("MariaDB database connected")
     else:
-        print("⚠️ MariaDB database not connected (optional)")
+        print("WARNING: MariaDB database not connected (optional)")
     
-    socketio.run(app, debug=True, host='0.0.0.0', port=5000)
+    socketio.run(
+        app,
+        debug=True,
+        host='0.0.0.0',
+        port=5000,
+        allow_unsafe_werkzeug=True,
+        use_reloader=False,
+    )

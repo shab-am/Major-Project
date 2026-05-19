@@ -47,9 +47,9 @@ class Database:
                 database=os.getenv('DB_NAME', 'hydroponics_db')
             )
             self.cursor = self.conn.cursor()
-            print("✅ Connected to MariaDB")
+            print("Connected to MariaDB")
         except mariadb.Error as e:
-            print(f"❌ Error connecting to MariaDB: {e}")
+            print(f"ERROR connecting to MariaDB: {e}")
             # Don't exit - allow app to run without database for development
             self.conn = None
             self.cursor = None
@@ -98,7 +98,7 @@ class Database:
             self.conn.commit()
             return self.cursor.lastrowid
         except mariadb.Error as e:
-            print(f"❌ Error inserting reading: {e}")
+            print(f"ERROR inserting reading: {e}")
             return None
     
     def get_recent_readings(self, limit=100, plant_id=None):
@@ -129,7 +129,7 @@ class Database:
                 results.append(_public_row_dict(columns, row))
             return results
         except mariadb.Error as e:
-            print(f"❌ Error fetching readings: {e}")
+            print(f"ERROR fetching readings: {e}")
             return []
 
     def insert_project_reading(self, values):
@@ -151,7 +151,7 @@ class Database:
             self.conn.commit()
             return self.cursor.lastrowid
         except mariadb.Error as e:
-            print(f"❌ Error inserting project_reading: {e}")
+            print(f"ERROR inserting project_reading: {e}")
             return None
 
     def get_recent_project_readings(self, limit=100):
@@ -173,7 +173,7 @@ class Database:
                 results.append(_public_row_dict(columns, row))
             return results
         except mariadb.Error as e:
-            print(f"❌ Error fetching project_readings: {e}")
+            print(f"ERROR fetching project_readings: {e}")
             return []
     
     def get_plant_statistics(self, plant_id=None):
@@ -216,7 +216,7 @@ class Database:
                 results.append(_public_row_dict(columns, row))
             return results
         except mariadb.Error as e:
-            print(f"❌ Error fetching statistics: {e}")
+            print(f"ERROR fetching statistics: {e}")
             return []
     
     def close(self):

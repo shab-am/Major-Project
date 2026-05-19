@@ -1,6 +1,10 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { AlertTriangle, Filter, CheckCircle, Bell } from 'lucide-react';
 import PageHeader from '../components/PageHeader';
+
+const SINGLE_ALERT_ID = 'active-tds-stress-alert';
+const DISPLAY_PLANT_NAME = 'Plant';
+const TDS_RANGE = { min: 560, max: 900, label: '560-900 ppm' };
 
 const StressInsightsPage = ({
   theme,
@@ -19,30 +23,28 @@ const StressInsightsPage = ({
 
   const analyzeStress = (plant) => {
     const recommendations = [];
-    const ranges = plant.optimal_ranges || {};
     const metrics = plant.metrics || {};
+    const value = Number(metrics.tds);
+    const hasPlantIssue = Array.isArray(plant.issues) && plant.issues.length > 0;
+    const isTdsOutOfRange = !Number.isNaN(value) && (value < TDS_RANGE.min || value > TDS_RANGE.max);
 
-    Object.entries(ranges).forEach(([parameter, range]) => {
-      const value = Number(metrics[parameter]);
-      if (Number.isNaN(value)) return;
-      if (value < range.min || value > range.max) {
-        recommendations.push({
-          id: `${plant.plant_code}-${parameter}-${value < range.min ? 'low' : 'high'}`,
-          plantId: plant.plant_code,
-          plantName: plant.display_name,
-          parameter: parameter.replace(/_/g, ' '),
-          action: value < range.min ? `Increase ${parameter.replace(/_/g, ' ')}` : `Decrease ${parameter.replace(/_/g, ' ')}`,
-          steps: [
-            `Target range: ${range.label}`,
-            'Adjust gradually and verify the next live reading',
-            'Monitor the reservoir after circulation'
-          ],
-          priority: parameter === 'ph' || parameter === 'tds' ? 'High' : 'Medium',
-          currentValue: value.toFixed(parameter === 'humidity' || parameter === 'tds' ? 0 : 2),
-          targetValue: range.label
-        });
-      }
-    });
+    if (hasPlantIssue || isTdsOutOfRange) {
+      recommendations.push({
+        id: SINGLE_ALERT_ID,
+        plantId: SINGLE_ALERT_ID,
+        plantName: DISPLAY_PLANT_NAME,
+        parameter: 'tds',
+        action: 'Review TDS stress point for Plant',
+        steps: [
+          `Target range: ${TDS_RANGE.label}`,
+          'Adjust gradually and verify the next live reading',
+          'Monitor the reservoir after circulation'
+        ],
+        priority: 'High',
+        currentValue: Number.isNaN(value) ? '--' : value.toFixed(0),
+        targetValue: TDS_RANGE.label
+      });
+    }
 
     return recommendations;
   };
@@ -53,18 +55,64 @@ const StressInsightsPage = ({
     return allRecommendations.filter(rec => {
       const plantMatch = filterPlant === 'all' || rec.plantName === filterPlant;
       const priorityMatch = filterPriority === 'all' || rec.priority.toLowerCase() === filterPriority.toLowerCase();
-      return plantMatch && priorityMatch && !completedRecommendations.includes(rec.id);
+      return plantMatch && priorityMatch && !completedRecommendations.includes(rec.plantId);
     });
   }, [allRecommendations, filterPlant, filterPriority, completedRecommendations]);
 
+  const groupRecommendationsByPlant = useCallback((recommendations) => {
+    const grouped = new Map();
+    recommendations.forEach((rec) => {
+      const current = grouped.get(rec.plantId) || {
+        ...rec,
+        id: rec.plantId,
+        parameter: '',
+        action: '',
+        currentValue: '',
+        targetValue: '',
+        steps: [],
+        issueCount: 0
+      };
+      const isHighPriority = rec.priority === 'High' || current.priority === 'High';
+      current.priority = isHighPriority ? 'High' : 'Medium';
+      current.issueCount = 1;
+      current.parameter = rec.parameter;
+      current.action = 'Review TDS stress point for Plant';
+      current.currentValue = `${rec.parameter}: ${rec.currentValue}`;
+      current.targetValue = `${rec.parameter}: ${rec.targetValue}`;
+      current.steps = [
+        'Check tds',
+        'Adjust gradually and verify the next live reading',
+        'Monitor the reservoir after circulation'
+      ];
+      grouped.set(rec.plantId, current);
+    });
+    return Array.from(grouped.values());
+  }, []);
+
+  const activeRecommendations = useMemo(
+    () =>
+      groupRecommendationsByPlant(filteredRecommendations).sort((a, b) => {
+        if (a.priority !== b.priority) return a.priority === 'High' ? -1 : 1;
+        return b.issueCount - a.issueCount;
+      }),
+    [filteredRecommendations, groupRecommendationsByPlant]
+  );
+  const visibleActiveRecommendations = useMemo(
+    () => activeRecommendations.slice(0, 1),
+    [activeRecommendations]
+  );
+  const visibleActiveCount = visibleActiveRecommendations.length;
+
   const completedRecs = useMemo(() => {
-    return allRecommendations.filter(rec => completedRecommendations.includes(rec.id));
-  }, [allRecommendations, completedRecommendations]);
+    if (!completedRecommendations.includes(SINGLE_ALERT_ID)) return [];
+    return groupRecommendationsByPlant(allRecommendations).slice(0, 1);
+  }, [allRecommendations, completedRecommendations, groupRecommendationsByPlant]);
 
   const markAsCompleted = (recId) => {
+    if (completedRecommendations.includes(recId)) return;
     setAnimatingCard(recId);
     setTimeout(() => {
-      setCompletedRecommendations(prev => [...prev, recId]);
+      setCompletedRecommendations(prev => (prev.includes(recId) ? prev : [...prev, recId]));
       setAnimatingCard(null);
     }, 600);
   };
@@ -77,7 +125,7 @@ const StressInsightsPage = ({
     return priority === 'High' ? 'rgba(255, 107, 107, 0.2)' : 'rgba(255, 165, 0, 0.2)';
   };
 
-  const plantNames = useMemo(() => ['all', ...new Set(plants.map((p) => p.display_name))], [plants]);
+  const plantNames = useMemo(() => ['all', DISPLAY_PLANT_NAME], []);
 
   return (
     <div style={{ marginBottom: '40px' }}>
@@ -105,11 +153,11 @@ const StressInsightsPage = ({
         </div>
         <div style={{ background: `linear-gradient(135deg, ${theme.card} 0%, ${theme.surface} 100%)`, padding: '20px', borderRadius: '12px', border: `1px solid ${theme.border}`, textAlign: 'center', boxShadow: isDarkMode ? '0 4px 20px rgba(0, 0, 0, 0.3)' : '0 2px 10px rgba(0, 0, 0, 0.1)' }}>
           <div style={{ color: theme.textMuted, fontSize: '14px', marginBottom: '8px' }}>Stressed Plants</div>
-          <div style={{ color: '#ff6b6b', fontSize: '28px', fontWeight: 'bold' }}>{new Set(allRecommendations.map((r) => r.plantName)).size}</div>
+          <div style={{ color: '#ff6b6b', fontSize: '28px', fontWeight: 'bold' }}>{visibleActiveCount}</div>
         </div>
         <div style={{ background: `linear-gradient(135deg, ${theme.card} 0%, ${theme.surface} 100%)`, padding: '20px', borderRadius: '12px', border: `1px solid ${theme.border}`, textAlign: 'center', boxShadow: isDarkMode ? '0 4px 20px rgba(0, 0, 0, 0.3)' : '0 2px 10px rgba(0, 0, 0, 0.1)' }}>
           <div style={{ color: theme.textMuted, fontSize: '14px', marginBottom: '8px' }}>Active Alerts</div>
-          <div style={{ color: '#ff6b6b', fontSize: '28px', fontWeight: 'bold' }}>{filteredRecommendations.length}</div>
+          <div style={{ color: '#ff6b6b', fontSize: '28px', fontWeight: 'bold' }}>{visibleActiveCount}</div>
         </div>
         <div style={{ background: `linear-gradient(135deg, ${theme.card} 0%, ${theme.surface} 100%)`, padding: '20px', borderRadius: '12px', border: `1px solid ${theme.border}`, textAlign: 'center', boxShadow: isDarkMode ? '0 4px 20px rgba(0, 0, 0, 0.3)' : '0 2px 10px rgba(0, 0, 0, 0.1)' }}>
           <div style={{ color: theme.textMuted, fontSize: '14px', marginBottom: '8px' }}>Completed</div>
@@ -150,8 +198,8 @@ const StressInsightsPage = ({
           </div>
           
           <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', maxHeight: 'calc(100vh - 400px)', overflowY: 'auto', paddingRight: '8px', width: '100%' }}>
-            {filteredRecommendations.length > 0 ? (
-              filteredRecommendations.map((rec) => {
+            {visibleActiveRecommendations.length > 0 ? (
+              visibleActiveRecommendations.map((rec) => {
                 const priorityColor = getPriorityColor(rec.priority);
                 const priorityBg = getPriorityBg(rec.priority);
                 const isAnimating = animatingCard === rec.id;
@@ -238,14 +286,14 @@ const StressInsightsPage = ({
                         }
                       }}
                     >
-                      ✓ Mark as Completed
+                      Mark as Completed
                     </button>
                   </div>
                 );
               })
             ) : (
               <div style={{ background: theme.card, padding: '32px', borderRadius: '16px', textAlign: 'center', border: `1px solid ${theme.border}` }}>
-                <div style={{ fontSize: '48px', marginBottom: '16px' }}>✅</div>
+                <div style={{ fontSize: '48px', marginBottom: '16px' }}>OK</div>
                 <h3 style={{ color: theme.text, fontSize: '18px', fontWeight: 'bold', marginBottom: '8px' }}>No Active Alerts</h3>
                 <p style={{ color: theme.textMuted, fontSize: '14px' }}>All recommendations have been completed or no alerts match the current filters.</p>
               </div>
@@ -307,7 +355,7 @@ const StressInsightsPage = ({
               })
             ) : (
               <div style={{ background: theme.card, padding: '32px', borderRadius: '16px', textAlign: 'center', border: `1px solid ${theme.border}` }}>
-                <div style={{ fontSize: '32px', marginBottom: '12px' }}>📋</div>
+                <div style={{ fontSize: '32px', marginBottom: '12px' }}>None</div>
                 <p style={{ color: theme.textMuted, fontSize: '14px' }}>No completed recommendations yet.</p>
               </div>
             )}

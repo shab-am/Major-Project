@@ -30,10 +30,16 @@ class ApiService {
    * Live sensor snapshot from MariaDB (project_readings + plant_readings).
    * Does not throw on 503 — returns parsed JSON so the UI can show DB-offline state.
    */
-  async fetchSensorLive(limit = 50) {
+  async fetchSensorLive(limit = 50, options = {}) {
     const requestUrl = new URL(`${API_BASE_URL}/api/sensor/live`);
     requestUrl.searchParams.set('limit', encodeURIComponent(limit));
     requestUrl.searchParams.set('_ts', Date.now().toString());
+    if (options.demo) {
+      requestUrl.searchParams.set('demo', '1');
+    }
+    if (options.stressDemo) {
+      requestUrl.searchParams.set('stress_demo', '1');
+    }
     const response = await fetch(
       requestUrl.toString(),
       {
