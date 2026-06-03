@@ -30,8 +30,27 @@ export function pickMetric(row, metricKey) {
   return null;
 }
 
+export function rowTimeValue(row) {
+  const raw = row?.timestamp || row?.recorded_at || row?.created_at || row?.reading_time || null;
+  if (!raw) return null;
+  const time = new Date(raw).getTime();
+  return Number.isNaN(time) ? null : time;
+}
+
+export function compareRowsChronological(a, b) {
+  const aTime = rowTimeValue(a);
+  const bTime = rowTimeValue(b);
+  const idOrder = (a?.id ?? 0) - (b?.id ?? 0);
+  if (aTime != null && bTime != null) return aTime - bTime || idOrder;
+  return idOrder;
+}
+
+export function compareRowsNewestFirst(a, b) {
+  return compareRowsChronological(b, a);
+}
+
 export function rowsToSeries(rows, projectMode = true) {
-  const chronological = [...(rows || [])].sort((a, b) => (a.id ?? 0) - (b.id ?? 0));
+  const chronological = [...(rows || [])].sort(compareRowsChronological);
   return chronological.map((row, index) => {
     const point = { readingLabel: `#${index + 1}`, id: row.id ?? index };
     METRIC_KEYS.forEach(({ key }) => {

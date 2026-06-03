@@ -101,14 +101,22 @@ void readSensors() {
   doValue = (voltageDO / vSat) * doSat;
 }
 
+void printValue(float value) {
+  if (isnan(value)) {
+    Serial.print("nan");
+  } else {
+    Serial.print(value);
+  }
+}
+
 void sendData() {
-  Serial.print(airTemp); Serial.print(",");
-  Serial.print(humidity); Serial.print(",");
-  Serial.print(0); Serial.print(",");
-  Serial.print(0); Serial.print(",");
-  Serial.print(phValue); Serial.print(",");
-  Serial.print(doValue); Serial.print(",");
-  Serial.print(0); Serial.print(",");
-  Serial.print(tdsValue); Serial.print(",");
-  Serial.println(0);
+  printValue(airTemp); Serial.print(",");
+  printValue(humidity); Serial.print(",");
+  Serial.print("nan"); Serial.print(",");
+  Serial.print("nan"); Serial.print(",");
+  printValue(phValue); Serial.print(",");
+  printValue(doValue); Serial.print(",");
+  Serial.print("nan"); Serial.print(",");
+  printValue(tdsValue); Serial.print(",");
+  Serial.println("nan");
 }

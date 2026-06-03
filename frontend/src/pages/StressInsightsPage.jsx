@@ -92,12 +92,10 @@ const StressInsightsPage = ({
   const [completedRecommendations, setCompletedRecommendations] = useState([]);
   const [animatingCard, setAnimatingCard] = useState(null);
 
-  const activeMetrics = useMemo(() => { // Hardcoded demo alerts: only pH and TDS; ambient temperature removed
-    return [
-      { metric: 'ph', label: METRIC_LABELS['ph'], target: '5.6-6.4', highCount: 0, lowCount: 2, highValue: null, lowValue: 5.2, severity: 'High Stress' },
-      { metric: 'tds', label: METRIC_LABELS['tds'], target: '560-840', highCount: 1, lowCount: 0, highValue: 900, lowValue: null, severity: 'Moderate' }
-    ];
-  }, []);
+  const activeMetrics = useMemo(
+    () => aggregateAlerts(outOfRangeValues, plants),
+    [outOfRangeValues, plants]
+  );
 
   const activeRecommendation = useMemo(() => {
     if (!activeMetrics.length || completedRecommendations.includes(ACTIVE_ALERT_ID)) return null;
@@ -250,9 +248,9 @@ const StressInsightsPage = ({
             </div>
           ) : (
             <div style={{ background: theme.card, padding: '32px', borderRadius: '16px', textAlign: 'center', border: `1px solid ${theme.border}` }}>
-              <div style={{ fontSize: '32px', marginBottom: '12px', color: theme.success }}>OK</div>
-              <h3 style={{ color: theme.text, fontSize: '18px', fontWeight: 'bold', marginBottom: '8px' }}>No Active Alerts</h3>
-              <p style={{ color: theme.textMuted, fontSize: '14px', margin: 0 }}>All parameters are in range or recommendations have been completed.</p>
+              <div style={{ fontSize: '32px', marginBottom: '12px', color: theme.success }}>Green Zone</div>
+              <h3 style={{ color: theme.text, fontSize: '18px', fontWeight: 'bold', marginBottom: '8px' }}>Conditions Are Balanced</h3>
+              <p style={{ color: theme.textMuted, fontSize: '14px', margin: 0 }}>Live readings are steady across the setup. No action needed right now.</p>
             </div>
           )}
         </section>

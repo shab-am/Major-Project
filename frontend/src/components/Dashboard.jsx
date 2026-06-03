@@ -20,6 +20,7 @@ import {
   Zap
 } from 'lucide-react';
 import HardwareInterfacePage from '../pages/HardwareInterfacePage';
+import { compareRowsChronological } from '../utils/sensorAnalytics';
 
 const METRICS = [
   {
@@ -214,7 +215,7 @@ const Dashboard = ({
       payload?.primary_source === 'plant_readings'
         ? payload?.plant_readings || []
         : payload?.project_readings || [];
-    return [...rows].sort((a, b) => (a.id ?? 0) - (b.id ?? 0));
+    return [...rows].sort(compareRowsChronological);
   }, [payload]);
 
   const metricsByKey = useMemo(

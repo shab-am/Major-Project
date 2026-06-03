@@ -34,7 +34,7 @@ def generate_demo_project_readings(count=72, *, refresh_tick=None):
     tick = refresh_tick if refresh_tick is not None else int(datetime.utcnow().timestamp() // 30)
     random.seed(tick)
     rows = []
-    now = datetime.utcnow()
+    now = datetime.utcfromtimestamp(tick * 30)
     base_ph = 6.05
     base_temp = 21.0
     base_humidity = 62.0
@@ -44,7 +44,7 @@ def generate_demo_project_readings(count=72, *, refresh_tick=None):
     base_electro = 1.05
 
     for i in range(count):
-        t = now - timedelta(minutes=(count - i) * 5)
+        t = now - timedelta(seconds=(count - i) * 5)
         wave = math.sin(i / 6.0)
         drift = (i - count // 2) * 0.008
         ph = round(base_ph + wave * 0.18 + drift + random.uniform(-0.05, 0.05), 3)
@@ -83,7 +83,7 @@ def generate_demo_project_readings(count=72, *, refresh_tick=None):
             'electrochemical_signal': electro,
         })
 
-    rows.sort(key=lambda r: r['id'], reverse=True)
+    rows.sort(key=lambda r: r['recorded_at'], reverse=True)
     return rows
 
 
@@ -95,10 +95,10 @@ def generate_stress_demo_project_readings(count=72, *, refresh_tick=None):
     tick = refresh_tick if refresh_tick is not None else int(datetime.utcnow().timestamp() // 30)
     random.seed(tick + 7919)
     rows = []
-    now = datetime.utcnow()
+    now = datetime.utcfromtimestamp(tick * 30)
 
     for i in range(count):
-        t = now - timedelta(minutes=(count - i) * 5)
+        t = now - timedelta(seconds=(count - i) * 5)
         wave = math.sin(i / 5.0)
 
         ph = round(4.05 + wave * 0.12 + random.uniform(-0.06, 0.06), 3)
@@ -124,5 +124,5 @@ def generate_stress_demo_project_readings(count=72, *, refresh_tick=None):
             'electrochemical_signal': electro,
         })
 
-    rows.sort(key=lambda r: r['id'], reverse=True)
+    rows.sort(key=lambda r: r['recorded_at'], reverse=True)
     return rows

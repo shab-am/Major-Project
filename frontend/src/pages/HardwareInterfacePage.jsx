@@ -1,9 +1,11 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Download, RefreshCw } from 'lucide-react';
-import PageHeader from '../components/PageHeader';
 import { useLiveSensor } from '../context/LiveSensorContext';
 import { omitTimeKeys, isTimeLikeKey } from '../utils/hideTimeFields';
 import { exportRowsToCsv } from '../utils/exportCsv';
+import { compareRowsNewestFirst } from '../utils/sensorAnalytics';
+
+const VISIBLE_ROW_LIMIT = 12;
 
 const getRowsFromPayload = (incomingPayload, incomingPrimarySource) => {
   const activePrimarySource =
@@ -12,7 +14,7 @@ const getRowsFromPayload = (incomingPayload, incomingPrimarySource) => {
     activePrimarySource === 'project_readings'
       ? incomingPayload?.project_readings || []
       : incomingPayload?.plant_readings || [];
-  return [...rows].sort((a, b) => (b.id ?? 0) - (a.id ?? 0));
+  return [...rows].sort(compareRowsNewestFirst);
 };
 
 const formatSensorLabel = (key) =>
@@ -21,12 +23,29 @@ const formatSensorLabel = (key) =>
     .replace(/\b\w/g, (char) => char.toUpperCase());
 
 const formatSensorValue = (value) => {
-  if (value === null || value === undefined) return '—';
+  if (value === null || value === undefined) return '--';
   if (typeof value === 'number' && Number.isFinite(value)) return value.toFixed(2);
   return String(value);
 };
 
 const rowFingerprint = (row) => JSON.stringify(row);
+const rowKeyFor = (row, fallback) =>
+  row?.id ?? row?.timestamp ?? row?.recorded_at ?? fallback ?? rowFingerprint(row);
+
+const keepExistingRowsStable = (rows, previousRows) =>
+  rows.map((row, index) => {
+    const key = rowKeyFor(row, `row-${index}`);
+    return previousRows.get(key) || row;
+  });
+
+const formatTableValue = (value, key) => {
+  if (value === null || value === undefined) return '--';
+  if (isTimeLikeKey(key)) {
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? String(value) : date.toLocaleString();
+  }
+  return formatSensorValue(value);
+};
 
 const HIDDEN_PLANT_FIELDS = new Set([
   'plant_id',
@@ -37,7 +56,30 @@ const HIDDEN_PLANT_FIELDS = new Set([
   'species'
 ]);
 
+const TABLE_COLUMN_ORDER = [
+  'id',
+  'timestamp',
+  'recorded_at',
+  'ambient_temperature',
+  'humidity',
+  'soil_temperature',
+  'light_intensity',
+  'ph_value',
+  'dissolved_oxygen',
+  'ec_value',
+  'tds_value',
+  'electrochemical_signal'
+];
+
 const isVisibleSensorKey = (key) => !isTimeLikeKey(key) && !HIDDEN_PLANT_FIELDS.has(key);
+const isVisibleTableKey = (key) => !HIDDEN_PLANT_FIELDS.has(key);
+
+const orderTableColumns = (columns) => {
+  const visible = columns.filter(isVisibleTableKey);
+  const ordered = TABLE_COLUMN_ORDER.filter((column) => visible.includes(column));
+  const rest = visible.filter((column) => !TABLE_COLUMN_ORDER.includes(column));
+  return [...ordered, ...rest].slice(0, 12);
+};
 
 export default function HardwareInterfacePage({ theme, isDarkMode, embedded = false }) {
   const [manualRefreshAt, setManualRefreshAt] = useState(null);
@@ -70,28 +112,31 @@ export default function HardwareInterfacePage({ theme, isDarkMode, embedded = fa
   const activePayload = displayPayload || payload;
   const latest = activePayload?.latest || null;
   const sourceRows = useMemo(
-    () => getRowsFromPayload(activePayload, primarySource),
+    () => keepExistingRowsStable(getRowsFromPayload(activePayload, primarySource), previousRowsRef.current),
     // tableVersion forces re-read after manual refresh
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [activePayload, primarySource, tableVersion]
   );
 
   useEffect(() => {
-    sourceRows.slice(0, 12).forEach((row) => {
-      previousRowsRef.current.set(row.id ?? rowFingerprint(row), { ...row });
+    sourceRows.slice(0, VISIBLE_ROW_LIMIT).forEach((row) => {
+      const key = rowKeyFor(row);
+      if (!previousRowsRef.current.has(key)) {
+        previousRowsRef.current.set(key, { ...row });
+      }
     });
   }, [sourceRows]);
 
   const topRowId = sourceRows[0]?.id ?? null;
   const visibleColumns = useMemo(
-    () => (sourceRows[0] ? Object.keys(sourceRows[0]).filter(isVisibleSensorKey).slice(0, 12) : []),
+    () => (sourceRows[0] ? orderTableColumns(Object.keys(sourceRows[0])) : []),
     [sourceRows]
   );
 
   useEffect(() => {
     const nextTopRowIds = sourceRows
-      .slice(0, 12)
-      .map((row, index) => row.id ?? `row-${index}`);
+      .slice(0, VISIBLE_ROW_LIMIT)
+      .map((row, index) => rowKeyFor(row, `row-${index}`));
     const previousTopRowIds = previousTopRowIdsRef.current;
     const insertedRowIds = nextTopRowIds.filter((id) => !previousTopRowIds.includes(id));
 
@@ -122,23 +167,27 @@ export default function HardwareInterfacePage({ theme, isDarkMode, embedded = fa
     try {
       const freshPayload = await refetch({ limit: 200 });
       if (freshPayload) {
-        const freshRows = getRowsFromPayload(freshPayload, freshPayload.primary_source);
+        const rawFreshRows = getRowsFromPayload(freshPayload, freshPayload.primary_source);
+        const freshRows = keepExistingRowsStable(rawFreshRows, prevMap);
         const cellChanges = {};
-        freshRows.slice(0, 12).forEach((row) => {
-          const id = row.id ?? rowFingerprint(row);
+        freshRows.slice(0, VISIBLE_ROW_LIMIT).forEach((row) => {
+          const id = rowKeyFor(row);
           const prev = prevMap.get(id);
           if (!prev) return;
-          const cols = Object.keys(row).filter(isVisibleSensorKey);
+          const cols = visibleColumns;
           cols.forEach((col) => {
-            if (formatSensorValue(row[col]) !== formatSensorValue(prev[col])) {
+            if (formatTableValue(row[col], col) !== formatTableValue(prev[col], col)) {
               if (!cellChanges[id]) cellChanges[id] = new Set();
               cellChanges[id].add(col);
             }
           });
         });
 
-        const nextMap = new Map();
-        freshRows.slice(0, 12).forEach((row) => nextMap.set(row.id ?? rowFingerprint(row), row));
+        const nextMap = new Map(prevMap);
+        rawFreshRows.slice(0, VISIBLE_ROW_LIMIT).forEach((row, index) => {
+          const key = rowKeyFor(row, `row-${index}`);
+          if (!nextMap.has(key)) nextMap.set(key, { ...row });
+        });
         previousRowsRef.current = nextMap;
 
         setDisplayPayload({ ...freshPayload, _refreshedAt: Date.now() });
@@ -152,11 +201,11 @@ export default function HardwareInterfacePage({ theme, isDarkMode, embedded = fa
           const anyValueChange = Object.keys(cellChanges).length > 0;
           setRefreshNote(
             anyValueChange
-              ? 'Top row ID unchanged but values updated in place.'
-              : 'No newer rows yet — highest ID is still the same. New hardware writes will appear here.'
+              ? 'Top row ID unchanged; existing row values were kept stable.'
+              : 'No newer rows yet - highest ID is still the same. New hardware writes will appear here.'
           );
         } else if (newTopId != null) {
-          setRefreshNote(`Loaded newer data — top row ID is now ${newTopId}.`);
+          setRefreshNote(`Loaded newer data - top row ID is now ${newTopId}.`);
         }
       }
     } finally {
@@ -215,7 +264,7 @@ export default function HardwareInterfacePage({ theme, isDarkMode, embedded = fa
               }}
             >
               <RefreshCw size={15} className={manualRefreshing ? 'spin-icon' : ''} />
-              {loading || manualRefreshing ? 'Refreshing…' : 'Refresh table'}
+              {loading || manualRefreshing ? 'Refreshing...' : 'Refresh table'}
             </button>
             <button
               type="button"
@@ -257,19 +306,19 @@ export default function HardwareInterfacePage({ theme, isDarkMode, embedded = fa
 
         <div style={{ color: theme.textMuted, fontSize: '12px', marginBottom: '12px' }}>
           Source: <strong style={{ color: theme.text }}>{primarySource || 'none'}</strong>
-          {' · '}
+          {' | '}
           Auto-refresh every {Math.round(pollIntervalMs / 1000)}s
-          {' · '}
+          {' | '}
           Status: <strong style={{ color: hasLiveDb ? '#4ade80' : theme.text }}>{hasLiveDb ? 'Receiving readings' : 'Waiting for readings'}</strong>
           {topRowId != null && (
             <>
-              {' · '}
+              {' | '}
               Top row ID: <strong style={{ color: theme.text }}>{topRowId}</strong>
             </>
           )}
           {manualRefreshAt ? (
             <>
-              {' · '}
+              {' | '}
               Last manual refresh: <strong style={{ color: theme.text }}>{manualRefreshAt.toLocaleTimeString()}</strong>
             </>
           ) : null}
@@ -346,7 +395,7 @@ export default function HardwareInterfacePage({ theme, isDarkMode, embedded = fa
         {sourceRows.length > 0 && (
           <div style={{ marginTop: '8px' }}>
             <h4 style={{ color: theme.text, fontSize: '14px', fontWeight: '600', marginBottom: '10px' }}>
-              Recent rows (newest first)
+              Recent rows (newest {Math.min(sourceRows.length, VISIBLE_ROW_LIMIT)} first)
             </h4>
             <div
               style={{
@@ -372,14 +421,14 @@ export default function HardwareInterfacePage({ theme, isDarkMode, embedded = fa
                   </tr>
                 </thead>
                 <tbody key={`tbody-${tableVersion}`}>
-                  {sourceRows.slice(0, 12).map((row, index) => {
-                    const rowKey = row.id ?? `row-${index}`;
+                  {sourceRows.slice(0, VISIBLE_ROW_LIMIT).map((row, index) => {
+                    const rowKey = rowKeyFor(row, `row-${index}`);
                     return (
                       <tr
                         key={`${rowKey}-${tableVersion}`}
                         style={{
                           borderBottom: `1px solid ${theme.border}`,
-                          background: highlightedRowIds.includes(row.id ?? `row-${index}`)
+                          background: highlightedRowIds.includes(rowKey)
                             ? isDarkMode
                               ? 'rgba(74, 222, 128, 0.12)'
                               : 'rgba(34, 197, 94, 0.08)'
@@ -402,7 +451,7 @@ export default function HardwareInterfacePage({ theme, isDarkMode, embedded = fa
                                   transition: 'background 0.3s ease'
                                 }}
                               >
-                                {formatSensorValue(row[column])}
+                                {formatTableValue(row[column], column)}
                               </td>
                             );
                           })}

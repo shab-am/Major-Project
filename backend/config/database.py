@@ -8,11 +8,12 @@ import os
 from decimal import Decimal
 from dotenv import load_dotenv
 
-load_dotenv()
+BACKEND_DIR = os.path.dirname(os.path.dirname(__file__))
+load_dotenv(os.path.join(BACKEND_DIR, '.env'))
 
-# Omit from JSON to clients (ordering still uses these columns in SQL where needed).
+# Omit internal audit columns from JSON clients. Keep timestamp visible for hardware tables.
 _CLIENT_OMIT_LOWER = frozenset({
-    'timestamp', 'created_at', 'updated_at', 'last_reading', 'reading_time', 'modified_at',
+    'created_at', 'updated_at', 'last_reading', 'reading_time', 'modified_at',
 })
 
 
@@ -143,9 +144,10 @@ class Database:
         try:
             sql = """
                 INSERT INTO project_readings (
+                    timestamp,
                     ambient_temperature, humidity, soil_temperature, light_intensity,
                     ph_value, dissolved_oxygen, ec_value, tds_value, electrochemical_signal
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (NOW(), ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """
             self.cursor.execute(sql, values)
             self.conn.commit()
@@ -155,14 +157,14 @@ class Database:
             return None
 
     def get_recent_project_readings(self, limit=100):
-        """Recent rows from project_readings (expects an id column for ordering)."""
+        """Recent rows from project_readings, newest timestamp first."""
         if not self.is_connected():
             return []
         try:
             self.cursor.execute(
                 """
                 SELECT * FROM project_readings
-                ORDER BY id DESC
+                ORDER BY timestamp DESC, id DESC
                 LIMIT ?
                 """,
                 (limit,),

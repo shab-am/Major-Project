@@ -864,26 +864,24 @@ def sensor_live():
             return jsonify(_sensor_live_payload(
                 project_rows, [],
                 demo_mode=True,
-                message='Demo stream — disable demo mode to use live MariaDB.'
+                message='Demo stream - disable demo mode to use live MariaDB.'
             )), 200
 
         if not db or not db.is_connected():
-            project_rows = generate_demo_project_readings(limit, refresh_tick=demo_tick)
             return jsonify(_sensor_live_payload(
-                project_rows, [],
-                demo_mode=True,
-                message='Database offline — showing demo data. Connect MariaDB or set USE_DEMO_DATA=false to hide.'
-            )), 200
+                [], [],
+                demo_mode=False,
+                message='Database offline. Connect MariaDB before checking live hardware readings.'
+            )), 503
 
         project_rows = db.get_recent_project_readings(limit)
         plant_rows = db.get_recent_readings(limit)
 
         if not project_rows and not plant_rows:
-            project_rows = generate_demo_project_readings(limit, refresh_tick=demo_tick)
             return jsonify(_sensor_live_payload(
-                project_rows, [],
-                demo_mode=True,
-                message='No rows in database — showing demo data until hardware writes readings.'
+                [], [],
+                demo_mode=False,
+                message='No rows in database yet. Start the collector and wait for hardware writes.'
             )), 200
 
         return jsonify(_sensor_live_payload(project_rows, plant_rows)), 200

@@ -1,10 +1,12 @@
-// ═══════════════════════════════════════════════════════
 // SENSOR ARDUINO
-// Outputs 8 values as CSV — matches collector FIELD_ORDER
-// ambient_temperature, humidity, soil_temperature,
-// light_intensity, ph, dissolved_oxygen, ec, tds
-// 9th value (electrochemical_signal) comes from Arduino 2
-// ═══════════════════════════════════════════════════════
+// Outputs 8 CSV values in collector SENSOR_FIELD_ORDER:
+// ambient_temperature, humidity, soil_temperature, light_intensity,
+// ph, dissolved_oxygen, ec, tds
+//
+// Important: this sketch does not replace real out-of-range readings with fake
+// in-range values. It prints nan only when a sensor looks disconnected/invalid.
+// backend/scripts/data_collector.py applies per-field fallback for those nan
+// values while keeping all working sensor values live.
 
 #include <DHT.h>
 #include <OneWire.h>
@@ -25,88 +27,94 @@ DallasTemperature ds18b20(&oneWire);
 const unsigned long INTERVAL = 5000;
 unsigned long lastTime = 0;
 
-// ── Valid ranges from your collector ──────────────────
-const float AMB_TEMP_LO  = 21.0,  AMB_TEMP_HI  = 27.5;
-const float HUMID_LO     = 55.0,  HUMID_HI     = 74.0;
-const float SOIL_LO      = 20.0,  SOIL_HI      = 25.5;
-const float LIGHT_LO     = 320.0, LIGHT_HI     = 780.0;
-const float PH_LO        = 5.5,   PH_HI        = 6.5;
-const float DO_LO        = 5.2,   DO_HI        = 8.8;
-const float EC_LO        = 1.0,   EC_HI        = 2.0;
-const float TDS_LO       = 550.0, TDS_HI       = 900.0;
-
-float randFloat(float lo, float hi) {
-  return lo + (float)random(0, 10001) / 10000.0 * (hi - lo);
-}
-
-// Returns fallback if value is NaN or out of range
-float safe(float val, float lo, float hi) {
-  if (isnan(val) || val < lo || val > hi) return randFloat(lo, hi);
-  return val;
+bool adcConnected(int raw) {
+  return raw > 5 && raw < 1018;
 }
 
 float avgADC(int pin) {
-  long s = 0;
-  for (int i = 0; i < 10; i++) { s += analogRead(pin); delay(10); }
-  return s / 10.0;
+  long sum = 0;
+  for (int i = 0; i < 10; i++) {
+    sum += analogRead(pin);
+    delay(10);
+  }
+  return sum / 10.0;
+}
+
+float cleanPhysical(float value, float low, float high) {
+  if (isnan(value) || value < low || value > high) return NAN;
+  return value;
+}
+
+void printValue(float value, int decimals) {
+  if (isnan(value)) {
+    Serial.print("nan");
+  } else {
+    Serial.print(value, decimals);
+  }
 }
 
 void setup() {
   Serial.begin(115200);
-  randomSeed(analogRead(A5));
   dht.begin();
   ds18b20.begin();
-  delay(2500); // DHT22 stabilise
+  delay(2500);
 }
 
 void loop() {
   if (millis() - lastTime < INTERVAL) return;
   lastTime = millis();
 
-  // ── 1. Ambient Temperature & Humidity (DHT22) ──────
-  float ambTemp  = safe(dht.readTemperature(), AMB_TEMP_LO, AMB_TEMP_HI);
-  float humidity = safe(dht.readHumidity(),    HUMID_LO,    HUMID_HI);
+  float ambTemp = cleanPhysical(dht.readTemperature(), -10.0, 60.0);
+  float humidity = cleanPhysical(dht.readHumidity(), 0.0, 100.0);
 
-  // ── 2. Soil Temperature (DS18B20) ──────────────────
   ds18b20.requestTemperatures();
-  float soilTemp = ds18b20.getTempCByIndex(0);
-  if (soilTemp == -127.0 || soilTemp == 85.0) soilTemp = -999;
-  soilTemp = safe(soilTemp, SOIL_LO, SOIL_HI);
+  float waterTemp = ds18b20.getTempCByIndex(0);
+  if (waterTemp == DEVICE_DISCONNECTED_C || waterTemp == 85.0) waterTemp = NAN;
+  waterTemp = cleanPhysical(waterTemp, 0.0, 45.0);
 
-  // ── 3. Light Intensity (LDR) ───────────────────────
-  // LDR is working — use real reading, map to range
-  int   ldrRaw = analogRead(LDR_PIN);
-  float light  = LIGHT_LO + ((float)ldrRaw / 1023.0) * (LIGHT_HI - LIGHT_LO);
-  // light always maps into range — no fallback needed
+  int ldrRaw = analogRead(LDR_PIN);
+  float light = adcConnected(ldrRaw)
+    ? 320.0 + ((float)ldrRaw / 1023.0) * (780.0 - 320.0)
+    : NAN;
 
-  // ── 4. pH ──────────────────────────────────────────
-  float phV = avgADC(PH_PIN) * (5.0 / 1023.0);
-  float ph  = safe(7.0 + (2.5 - phV) / 0.18, PH_LO, PH_HI);
+  int phRaw = (int)avgADC(PH_PIN);
+  float ph = NAN;
+  if (adcConnected(phRaw)) {
+    float phV = phRaw * (5.0 / 1023.0);
+    ph = cleanPhysical(7.0 + (2.5 - phV) / 0.18, 0.0, 14.0);
+  }
 
-  // ── 5. Dissolved Oxygen ────────────────────────────
-  float doV   = avgADC(DO_PIN) * (5.0 / 1023.0);
-  float doVal = safe(8.0 * (doV - 0.4) / (3.2 - 0.4), DO_LO, DO_HI);
+  int doRaw = (int)avgADC(DO_PIN);
+  float dissolvedOxygen = NAN;
+  if (adcConnected(doRaw)) {
+    float doV = doRaw * (5.0 / 1023.0);
+    dissolvedOxygen = cleanPhysical(8.0 * (doV - 0.4) / (3.2 - 0.4), 0.0, 20.0);
+  }
 
-  // ── 6. EC (working) ────────────────────────────────
-  float ecV = avgADC(EC_PIN) * (5.0 / 1023.0);
-  float ec  = safe((ecV / 5.0) * 5.0, EC_LO, EC_HI);
+  int ecRaw = (int)avgADC(EC_PIN);
+  float ec = NAN;
+  if (adcConnected(ecRaw)) {
+    float ecV = ecRaw * (5.0 / 1023.0);
+    ec = cleanPhysical((ecV / 5.0) * 5.0, 0.0, 5.0);
+  }
 
-  // ── 7. TDS (working) ───────────────────────────────
-  float tdsV = avgADC(TDS_PIN) * (5.0 / 1023.0);
-  float tds  = safe(
-    (133.42 * pow(tdsV, 3) - 255.86 * pow(tdsV, 2) + 857.39 * tdsV) * 0.5,
-    TDS_LO, TDS_HI
-  );
+  int tdsRaw = (int)avgADC(TDS_PIN);
+  float tds = NAN;
+  if (adcConnected(tdsRaw)) {
+    float tdsV = tdsRaw * (5.0 / 1023.0);
+    tds = cleanPhysical(
+      (133.42 * pow(tdsV, 3) - 255.86 * pow(tdsV, 2) + 857.39 * tdsV) * 0.5,
+      0.0,
+      2500.0
+    );
+  }
 
-  // ── Output: 8 values, plain CSV, no prefix ─────────
-  // Collector will merge this with electrochemical_signal
-  // from the second Arduino on the RPi side
-  Serial.print(ambTemp,  2); Serial.print(",");
-  Serial.print(humidity, 2); Serial.print(",");
-  Serial.print(soilTemp, 2); Serial.print(",");
-  Serial.print(light,    2); Serial.print(",");
-  Serial.print(ph,       2); Serial.print(",");
-  Serial.print(doVal,    2); Serial.print(",");
-  Serial.print(ec,       2); Serial.print(",");
-  Serial.println(tds,    2);
+  printValue(ambTemp, 2);          Serial.print(",");
+  printValue(humidity, 2);         Serial.print(",");
+  printValue(waterTemp, 2);        Serial.print(",");
+  printValue(light, 2);            Serial.print(",");
+  printValue(ph, 2);               Serial.print(",");
+  printValue(dissolvedOxygen, 2);  Serial.print(",");
+  printValue(ec, 2);               Serial.print(",");
+  printValue(tds, 2);              Serial.println();
 }

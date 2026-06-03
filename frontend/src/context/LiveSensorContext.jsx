@@ -11,6 +11,7 @@ import apiService from '../services/apiService';
 import { withGenericPlantLabels } from '../utils/plantNames';
 import {
   assessDataQuality,
+  compareRowsChronological,
   metricBandSummary,
   rowsToSeries,
   DEFAULT_OPTIMAL
@@ -113,7 +114,7 @@ export function LiveSensorProvider({ children }) {
     const primaryRows = projectMode
       ? payload?.project_readings || []
       : payload?.plant_readings || [];
-    const chronologicalRows = [...primaryRows].sort((a, b) => (a.id ?? 0) - (b.id ?? 0));
+    const chronologicalRows = [...primaryRows].sort(compareRowsChronological);
     const analyticsLiveRows = chronologicalRows.map((row) =>
       rowToAnalyticsLive(row, projectMode)
     );
