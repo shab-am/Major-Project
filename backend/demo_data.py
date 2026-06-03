@@ -48,7 +48,7 @@ def generate_demo_project_readings(count=72, *, refresh_tick=None):
         wave = math.sin(i / 6.0)
         drift = (i - count // 2) * 0.008
         ph = round(base_ph + wave * 0.18 + drift + random.uniform(-0.05, 0.05), 3)
-        temp = round(base_temp + wave * 1.2 + random.uniform(-0.4, 0.4), 2)
+        temp = round(base_temp + wave * 0.25 + drift * 0.2 + random.uniform(-0.05, 0.05), 2)
         humidity = round(base_humidity + wave * 4 + random.uniform(-2, 2), 1)
         tds = round(base_tds + wave * 40 + i * 0.6 + random.uniform(-15, 15), 1)
         dissolved_oxygen = round(base_do + wave * 0.35 + random.uniform(-0.15, 0.15), 2)
@@ -77,7 +77,7 @@ def generate_demo_project_readings(count=72, *, refresh_tick=None):
             'humidity': humidity,
             'tds_value': tds,
             'dissolved_oxygen': dissolved_oxygen,
-            'soil_temperature': round(temp - 0.8, 2),
+            'soil_temperature': round(temp - 0.55 + random.uniform(-0.03, 0.03), 2),
             'light_intensity': round(480 + wave * 80 + random.uniform(-30, 30)),
             'ec_value': ec,
             'electrochemical_signal': electro,
@@ -102,7 +102,7 @@ def generate_stress_demo_project_readings(count=72, *, refresh_tick=None):
         wave = math.sin(i / 5.0)
 
         ph = round(4.05 + wave * 0.12 + random.uniform(-0.06, 0.06), 3)
-        temp = round(29.8 + wave * 1.1 + random.uniform(-0.35, 0.35), 2)
+        temp = round(29.8 + wave * 0.25 + random.uniform(-0.06, 0.06), 2)
         humidity = round(38.0 + wave * 3.0 + random.uniform(-1.5, 1.5), 1)
         tds = round(1120.0 + wave * 45 + random.uniform(-25, 25), 1)
         dissolved_oxygen = round(3.35 + wave * 0.25 + random.uniform(-0.12, 0.12), 2)
@@ -118,7 +118,7 @@ def generate_stress_demo_project_readings(count=72, *, refresh_tick=None):
             'humidity': humidity,
             'tds_value': tds,
             'dissolved_oxygen': dissolved_oxygen,
-            'soil_temperature': round(temp + 1.2 + random.uniform(-0.3, 0.3), 2),
+            'soil_temperature': round(temp + 0.75 + random.uniform(-0.04, 0.04), 2),
             'light_intensity': round(120 + wave * 35 + random.uniform(-15, 15)),
             'ec_value': ec,
             'electrochemical_signal': electro,

@@ -5,9 +5,12 @@ import { getRangeInsight } from '../utils/metricInsights';
 const METRIC_KEYS = {
   ph: 'ph',
   temperature: 'temperature',
+  waterTemperature: 'temperature',
   humidity: 'humidity',
+  lightIntensity: 'light_intensity',
   tds: 'tds',
-  dissolvedOxy: 'dissolved_oxygen'
+  dissolvedOxy: 'dissolved_oxygen',
+  ec: 'ec'
 };
 
 export default function RangeInsightBadge({ type, metricKey, theme }) {

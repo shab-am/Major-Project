@@ -32,6 +32,18 @@ RANGES = {
     'electrochemical_signal': (0.25, 1.1),
 }
 
+MAX_STEP = {
+    'ambient_temperature': 0.03,
+    'soil_temperature': 0.02,
+    'humidity': 0.25,
+    'light_intensity': 8.0,
+    'ph': 0.025,
+    'dissolved_oxygen': 0.04,
+    'ec': 0.01,
+    'tds': 4.0,
+    'electrochemical_signal': 0.015,
+}
+
 FIELD_ORDER = (
     'ambient_temperature',
     'humidity',
@@ -59,7 +71,7 @@ bio_lock     = threading.Lock()
 def smooth_random(key):
     lo, hi = RANGES[key]
     prev   = previous_values[key]
-    drift  = (hi - lo) * 0.05
+    drift  = MAX_STEP.get(key, (hi - lo) * 0.03)
     nxt    = max(lo, min(hi, prev + random.uniform(-drift, drift)))
     previous_values[key] = round(nxt, 2)
     return previous_values[key]
@@ -120,7 +132,10 @@ def init_socket():
 def init_database():
     global db
     db = Database()
-    print("DB connected" if db.is_connected() else "DB unavailable")
+    if db.is_connected():
+        print("Database connected")
+    else:
+        print("Database connection unavailable")
 
 def emit_sensor_update(reading_id, values):
     payload = {'id': reading_id}

@@ -4,7 +4,7 @@ import { plantMetricDelta, sortPlantsByRisk } from '../utils/sensorAnalytics';
 
 const HEALTH_COLORS = { Healthy: '#4ade80', 'Moderate Stress': '#ffa500', 'High Stress': '#ff6b6b' };
 
-export default function PlantRoster({ plants = [], theme, isDarkMode, compact = false }) {
+export default function PlantRoster({ plants = [], theme, compact = false }) {
   const sorted = sortPlantsByRisk(plants);
   if (!sorted.length) return <p style={{ color: theme.textMuted, padding: 16, textAlign: 'center', margin: 0 }}>No plant data yet.</p>;
 
@@ -20,14 +20,11 @@ export default function PlantRoster({ plants = [], theme, isDarkMode, compact = 
           { key: 'dissolved_oxygen', label: 'DO', value: plant.metrics?.dissolved_oxygen }
         ];
         return (
-          <div key={plant.plant_code} style={{ background: theme.card, border: `1px solid ${color}44`, borderRadius: compact ? 10 : 14, padding: compact ? 10 : 14 }}>
+          <div key={plant.plant_code || plant.display_name} style={{ background: theme.card, border: `1px solid ${color}44`, borderRadius: compact ? 10 : 14, padding: compact ? 10 : 14 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8, gap: 8 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <Leaf size={16} color={color} />
-                <div>
-                  <div style={{ color: theme.text, fontWeight: 700, fontSize: compact ? 13 : 14 }}>{plant.display_name}</div>
-                  <div style={{ color: theme.textMuted, fontSize: 11 }}>Slot {plant.plant_index ?? '—'}</div>
-                </div>
+                <div style={{ color: theme.text, fontWeight: 700, fontSize: compact ? 13 : 14 }}>{plant.display_name}</div>
               </div>
               <span style={{ padding: '3px 8px', borderRadius: 6, background: `${color}22`, color, fontSize: 11, fontWeight: 600 }}>{plant.health_status}</span>
             </div>
@@ -37,7 +34,7 @@ export default function PlantRoster({ plants = [], theme, isDarkMode, compact = 
                 return (
                   <div key={key} style={{ background: theme.surface, borderRadius: 6, padding: 8, border: `1px solid ${theme.border}` }}>
                     <div style={{ color: theme.textMuted, fontSize: 10 }}>{label}</div>
-                    <div style={{ color: theme.text, fontWeight: 600, fontSize: 12 }}>{value != null ? Number(value).toFixed(key === 'ph' ? 2 : 1) : '—'}</div>
+                    <div style={{ color: theme.text, fontWeight: 600, fontSize: 12 }}>{value != null ? Number(value).toFixed(key === 'ph' ? 2 : 1) : '--'}</div>
                     {delta && <div style={{ fontSize: 10, marginTop: 2, color: delta.direction === 'ok' ? '#4ade80' : '#ff6b6b' }}>{delta.text}</div>}
                   </div>
                 );
@@ -46,7 +43,7 @@ export default function PlantRoster({ plants = [], theme, isDarkMode, compact = 
             {plant.issues?.length > 0 && (
               <div style={{ marginTop: 8, fontSize: 11, color: theme.textMuted }}>
                 <AlertTriangle size={11} style={{ verticalAlign: 'middle', marginRight: 4 }} color="#ff6b6b" />
-                {plant.issues.join(' · ')}
+                {plant.issues.join(' | ')}
               </div>
             )}
           </div>

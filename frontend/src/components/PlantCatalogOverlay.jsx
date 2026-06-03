@@ -66,7 +66,7 @@ export default function PlantCatalogOverlay({ open, onClose, plants, theme, isDa
           </button>
         </div>
         <p style={{ color: theme.textMuted, fontSize: 13, marginTop: 0, marginBottom: 16 }}>
-          Tap outside this panel to close. Metrics use live readings mapped to each plant slot.
+          Tap outside this panel to close. Metrics use live readings mapped to each sensor profile.
         </p>
         <PlantRoster plants={plants} theme={theme} isDarkMode={isDarkMode} compact />
       </div>

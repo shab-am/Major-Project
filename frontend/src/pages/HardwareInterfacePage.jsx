@@ -28,6 +28,17 @@ const formatSensorValue = (value) => {
 
 const rowFingerprint = (row) => JSON.stringify(row);
 
+const HIDDEN_PLANT_FIELDS = new Set([
+  'plant_id',
+  'plant_name',
+  'plant_code',
+  'display_name',
+  'plant_index',
+  'species'
+]);
+
+const isVisibleSensorKey = (key) => !isTimeLikeKey(key) && !HIDDEN_PLANT_FIELDS.has(key);
+
 export default function HardwareInterfacePage({ theme, isDarkMode, embedded = false }) {
   const [manualRefreshAt, setManualRefreshAt] = useState(null);
   const [manualRefreshing, setManualRefreshing] = useState(false);
@@ -72,6 +83,10 @@ export default function HardwareInterfacePage({ theme, isDarkMode, embedded = fa
   }, [sourceRows]);
 
   const topRowId = sourceRows[0]?.id ?? null;
+  const visibleColumns = useMemo(
+    () => (sourceRows[0] ? Object.keys(sourceRows[0]).filter(isVisibleSensorKey).slice(0, 12) : []),
+    [sourceRows]
+  );
 
   useEffect(() => {
     const nextTopRowIds = sourceRows
@@ -113,7 +128,7 @@ export default function HardwareInterfacePage({ theme, isDarkMode, embedded = fa
           const id = row.id ?? rowFingerprint(row);
           const prev = prevMap.get(id);
           if (!prev) return;
-          const cols = Object.keys(row).filter((k) => !isTimeLikeKey(k));
+          const cols = Object.keys(row).filter(isVisibleSensorKey);
           cols.forEach((col) => {
             if (formatSensorValue(row[col]) !== formatSensorValue(prev[col])) {
               if (!cellChanges[id]) cellChanges[id] = new Set();
@@ -302,7 +317,7 @@ export default function HardwareInterfacePage({ theme, isDarkMode, embedded = fa
             }}
           >
             {Object.entries(omitTimeKeys(latest))
-              .filter(([key]) => !isTimeLikeKey(key))
+              .filter(([key]) => isVisibleSensorKey(key))
               .map(([key, value]) => (
                 <div
                   key={key}
@@ -349,10 +364,7 @@ export default function HardwareInterfacePage({ theme, isDarkMode, embedded = fa
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', color: theme.text }}>
                 <thead>
                   <tr style={{ background: theme.surface, textAlign: 'left' }}>
-                    {Object.keys(sourceRows[0])
-                      .filter((column) => !isTimeLikeKey(column))
-                      .slice(0, 12)
-                      .map((column) => (
+                    {visibleColumns.map((column) => (
                         <th key={column} style={{ padding: '8px 10px', borderBottom: `1px solid ${theme.border}`, whiteSpace: 'nowrap' }}>
                           {formatSensorLabel(column)}
                         </th>
@@ -375,10 +387,7 @@ export default function HardwareInterfacePage({ theme, isDarkMode, embedded = fa
                           transition: 'background 0.35s ease'
                         }}
                       >
-                        {Object.keys(sourceRows[0])
-                          .filter((column) => !isTimeLikeKey(column))
-                          .slice(0, 12)
-                          .map((column) => {
+                        {visibleColumns.map((column) => {
                             const changed = changedCells[rowKey]?.has(column);
                             return (
                               <td

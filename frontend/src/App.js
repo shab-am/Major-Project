@@ -17,6 +17,21 @@ const PAGE_COMPONENTS = {
   mlAnalysis: MLAnalysisPage
 };
 
+const ALERT_LABELS = {
+  ph: 'Water pH',
+  temperature: 'Ambient temperature',
+  soil_temperature: 'Water temperature',
+  humidity: 'Humidity',
+  light_intensity: 'Light intensity',
+  tds: 'TDS',
+  dissolved_oxygen: 'Dissolved oxygen',
+  ec: 'EC'
+};
+
+function formatAlertValue(value) {
+  return Number.isFinite(Number(value)) ? Number(value).toFixed(2) : value;
+}
+
 export default function App() {
   const [currentPage, setCurrentPage] = useState('dashboard');
   const [isDarkMode, setIsDarkMode] = useState(true);
@@ -46,49 +61,66 @@ export default function App() {
       if (outOfRangeValues.length > 0) {
         const grouped = new Map();
         outOfRangeValues.forEach((item) => {
-          const plantCode = item.plant_code || item.plant_name || 'active-alert';
-          const entry = grouped.get(plantCode) || {
-            id: plantCode,
-            plantCode,
-            plantName: item.plant_name || 'Plant',
+          const metricKey = item.metric || item.label || 'range';
+          const direction = item.direction || 'alert';
+          const key = `${metricKey}-${direction}`;
+          const value = Number(item.value);
+          const entry = grouped.get(key) || {
+            id: key,
             severity: item.health_status,
             issue: item.issue,
-            metrics: [],
-            sourceRowId: item.source_row_id
-          };
-          entry.metrics.push({
-            label: item.label || item.metric,
+            label: ALERT_LABELS[metricKey] || item.label || metricKey,
+            direction,
             value: item.value,
             target: item.target || `${item.min}-${item.max}`,
-            direction: item.direction
-          });
-          grouped.set(plantCode, entry);
+            sourceRowId: item.source_row_id
+          };
+
+          const previousValue = Number(entry.value);
+          const shouldReplace =
+            Number.isFinite(value) &&
+            (!Number.isFinite(previousValue) ||
+              (direction === 'high' ? value > previousValue : value < previousValue));
+          if (shouldReplace) {
+            entry.value = item.value;
+            entry.target = item.target || `${item.min}-${item.max}`;
+            entry.sourceRowId = item.source_row_id;
+          }
+
+          grouped.set(key, entry);
         });
 
-        return Array.from(grouped.values())
-          .map((entry) => ({
-            ...entry,
-            title: `${entry.plantName}: ${entry.metrics.length} range alert${entry.metrics.length === 1 ? '' : 's'}`,
-            body: entry.metrics
-              .map((metric) => `${metric.label} ${metric.direction} (${metric.value} / ${metric.target})`)
+        const metrics = Array.from(grouped.values());
+        return [
+          {
+            id: 'combined-range-alerts',
+            severity: metrics.some((metric) => metric.severity === 'High Stress') ? 'High Stress' : 'Moderate Stress',
+            issue: metrics[0]?.issue || 'range alert',
+            metrics,
+            title: 'Parameters need attention',
+            body: metrics
+              .map((metric) => `${metric.label} ${metric.direction} (${formatAlertValue(metric.value)} / ${metric.target})`)
               .join(', ')
-          }))
-          .slice(0, 1);
+          }
+        ];
       }
 
-      return plants
+      const issueMetrics = plants
         .filter((plant) => Array.isArray(plant.issues) && plant.issues.length > 0)
-        .map((plant) => ({
-          id: plant.plant_code,
-          plantCode: plant.plant_code,
-          plantName: plant.display_name,
-          title: `${plant.display_name}: ${plant.issues.length} stress flag${plant.issues.length === 1 ? '' : 's'}`,
-          body: plant.issues.map((issue) => issue.replace(/_/g, ' ')).join(', '),
-          severity: plant.health_status,
-          issue: plant.issues[0],
-          issues: plant.issues
-        }))
-        .slice(0, 1);
+        .flatMap((plant) => plant.issues.map((issue) => issue.replace(/_/g, ' ')));
+
+      return issueMetrics.length
+        ? [
+            {
+              id: 'combined-stress-flags',
+              title: 'Parameters need attention',
+              body: Array.from(new Set(issueMetrics)).join(', '),
+              severity: 'High Stress',
+              issue: issueMetrics[0],
+              issues: issueMetrics
+            }
+          ]
+        : [];
     },
     [outOfRangeValues, plants]
   );

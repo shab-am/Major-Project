@@ -61,6 +61,30 @@ const INSIGHTS = {
       effect: 'Usually less critical; verify sensor if value is far above normal.',
       duration: DURATION_NOTE
     }
+  },
+  light_intensity: {
+    low: {
+      cause: 'Light intensity is below target, often from dimming, shade, dirty lenses, or lamp distance.',
+      effect: 'Photosynthesis slows and growth may become stretched or weak.',
+      duration: DURATION_NOTE
+    },
+    high: {
+      cause: 'Light intensity is above target, often from lamps too close or an overly long high-output cycle.',
+      effect: 'Leaf edges can bleach or curl and canopy temperature may rise.',
+      duration: DURATION_NOTE
+    }
+  },
+  ec: {
+    low: {
+      cause: 'EC is below target, usually from dilution, under-dosing, or rapid nutrient uptake.',
+      effect: 'Nutrient availability drops and growth can become pale or slow.',
+      duration: DURATION_NOTE
+    },
+    high: {
+      cause: 'EC is above target, usually from salt accumulation, evaporation, or over-dosing.',
+      effect: 'Osmotic stress can reduce water uptake and burn leaf margins.',
+      duration: DURATION_NOTE
+    }
   }
 };
 
@@ -92,7 +116,11 @@ export function analyzeMetricWindow(data, dataKey, optimalRange, metricKey) {
     else break;
   }
 
-  const insightKeyMap = { dissolvedOxy: 'dissolved_oxygen' };
+  const insightKeyMap = {
+    dissolvedOxy: 'dissolved_oxygen',
+    waterTemperature: 'temperature',
+    lightIntensity: 'light_intensity'
+  };
   const insightKey = insightKeyMap[metricKey] || metricKey;
 
   const direction =
@@ -127,7 +155,11 @@ export function analyzeMetricWindow(data, dataKey, optimalRange, metricKey) {
 }
 
 export function getSpikeInsight(metricKey, value, optimalRange) {
-  const insightKeyMap = { dissolvedOxy: 'dissolved_oxygen' };
+  const insightKeyMap = {
+    dissolvedOxy: 'dissolved_oxygen',
+    waterTemperature: 'temperature',
+    lightIntensity: 'light_intensity'
+  };
   const key = insightKeyMap[metricKey] || metricKey;
   if (value == null || !optimalRange) {
     return 'Unusual point compared with recent readings — verify sensor contact and recirculation.';

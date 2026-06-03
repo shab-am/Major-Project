@@ -1,5 +1,15 @@
-import React, { useState, useMemo } from 'react';
-import { Droplets, TrendingUp, AlertTriangle, Filter } from 'lucide-react';
+import React, { useMemo, useState } from 'react';
+import {
+  Activity,
+  AlertTriangle,
+  Droplets,
+  Filter,
+  Gauge,
+  Lightbulb,
+  Thermometer,
+  Waves,
+  Zap
+} from 'lucide-react';
 import {
   ResponsiveContainer,
   LineChart,
@@ -20,55 +30,73 @@ import { getSpikeInsight } from '../utils/metricInsights';
 const FIELD_MAP = {
   ph: 'Soil_pH',
   temperature: 'Ambient_Temperature',
+  waterTemperature: 'Soil_Temperature',
   humidity: 'Humidity',
-  tds: 'TDS',
-  dissolvedOxy: 'Dissolved_Oxygen'
+  lightIntensity: 'Light_Intensity',
+  dissolvedOxy: 'Dissolved_Oxygen',
+  ec: 'EC_Value',
+  tds: 'TDS'
 };
 
 const METRIC_CONFIG = {
-  ph: { label: 'pH', colorKey: 'chartPh', icon: Droplets, yDomain: [0, 14] },
-  temperature: { label: 'Temperature', colorKey: 'chartTemp', icon: TrendingUp },
-  humidity: { label: 'Humidity', colorKey: 'chartHumidity', icon: Droplets, yDomain: [0, 100] },
-  tds: { label: 'TDS', colorKey: 'chartTds', icon: TrendingUp },
-  dissolvedOxy: { label: 'Dissolved oxygen', colorKey: 'chartDo', icon: Droplets }
+  ph: { label: 'Water pH', colorKey: 'chartPh', icon: Droplets, yDomain: [0, 14], decimals: 2 },
+  temperature: { label: 'Ambient temperature', colorKey: 'chartTemp', icon: Thermometer, decimals: 1 },
+  waterTemperature: { label: 'Water temperature', color: '#dc2626', icon: Thermometer, decimals: 1 },
+  humidity: { label: 'Humidity', colorKey: 'chartHumidity', icon: Waves, yDomain: [0, 100], decimals: 1 },
+  lightIntensity: { label: 'Light intensity', color: '#eab308', icon: Lightbulb, decimals: 0 },
+  dissolvedOxy: { label: 'Dissolved oxygen', colorKey: 'chartDo', icon: Activity, decimals: 2 },
+  ec: { label: 'EC', color: '#7c3aed', icon: Zap, decimals: 3 },
+  tds: { label: 'TDS', colorKey: 'chartTds', icon: Gauge, decimals: 0 }
 };
 
 const optimalRanges = {
   ph: { min: 5.5, max: 6.5, unit: '' },
-  temperature: { min: 18, max: 24, unit: '°C' },
+  temperature: { min: 18, max: 24, unit: 'C' },
+  waterTemperature: { min: 18, max: 26, unit: 'C' },
   humidity: { min: 55, max: 72, unit: '%' },
-  tds: { min: 560, max: 900, unit: 'ppm' },
-  dissolvedOxy: { min: 5, max: 9, unit: 'mg/L' }
+  lightIntensity: { min: 350, max: 650, unit: 'lux' },
+  dissolvedOxy: { min: 5, max: 9, unit: 'mg/L' },
+  ec: { min: 0.85, max: 2.1, unit: 'mS/cm' },
+  tds: { min: 560, max: 900, unit: 'ppm' }
 };
 
-function withVisibleHighSpike(metricId, data) {
-  if (metricId !== 'tds' || !data.length) return data;
-  const range = optimalRanges[metricId];
-  const alreadyOutOfRange = data.some((row) => {
-    const value = row[metricId];
-    return value != null && (value < range.min || value > range.max);
-  });
-  if (alreadyOutOfRange) return data;
+function formatMetricValue(value, metricId) {
+  if (value == null || Number.isNaN(Number(value))) return '--';
+  const cfg = METRIC_CONFIG[metricId] || {};
+  const range = optimalRanges[metricId] || {};
+  const decimals = cfg.decimals ?? 1;
+  const formatted = Number(value).toFixed(decimals);
+  return range.unit ? `${formatted} ${range.unit}` : formatted;
+}
 
-  return data.map((row, index) =>
-    index === data.length - 1
-      ? {
-          ...row,
-          [metricId]: range.max + 160,
-          injectedSpike: true
-        }
-      : row
-  );
+function rangeSummaryForMetric(metricId, data) {
+  const range = optimalRanges[metricId];
+  if (!range || !data.length) return null;
+
+  const values = data
+    .map((row) => row[metricId])
+    .filter((value) => value != null && Number.isFinite(Number(value)))
+    .map(Number);
+  const highValues = values.filter((value) => value > range.max);
+  const lowValues = values.filter((value) => value < range.min);
+  if (!highValues.length && !lowValues.length) return null;
+
+  return {
+    metricId,
+    label: METRIC_CONFIG[metricId]?.label || metricId,
+    highCount: highValues.length,
+    lowCount: lowValues.length,
+    highPeak: highValues.length ? Math.max(...highValues) : null,
+    lowDip: lowValues.length ? Math.min(...lowValues) : null
+  };
 }
 
 function TrendTooltip({ active, payload, label, theme, isDarkMode, anomalies, metricId, optimalRange }) {
   if (!active || !payload?.length) return null;
   const value = payload[0]?.value;
   const anomaly = anomalies?.find((a) => a.readingLabel === label);
-  let extra = null;
-  if (anomaly) {
-    extra = getSpikeInsight(metricId, value, optimalRange);
-  }
+  const extra = anomaly ? getSpikeInsight(metricId, value, optimalRange) : null;
+
   return (
     <ChartTooltipThemed
       active={active}
@@ -111,31 +139,23 @@ function ChartCard({
   metricId
 }) {
   const latest = data.length ? data[data.length - 1]?.[dataKey] : null;
-  const highInWindow = optimalRange
-    ? data.filter((row) => row[dataKey] != null && row[dataKey] > optimalRange.max)
-    : [];
-  const lowInWindow = optimalRange
-    ? data.filter((row) => row[dataKey] != null && row[dataKey] < optimalRange.min)
-    : [];
+  const summary = rangeSummaryForMetric(metricId, data);
   const alertType =
-    optimalRange
-      ? highInWindow.length
+    latest != null && optimalRange
+      ? latest < optimalRange.min
+        ? 'low'
+        : latest > optimalRange.max
           ? 'high'
-          : lowInWindow.length
-            ? 'low'
-            : latest != null && latest < optimalRange.min
-              ? 'low'
-              : latest != null && latest > optimalRange.max
-                ? 'high'
-                : null
+          : null
       : null;
-  const visibleSpike = data.some((row) => row.injectedSpike);
-  const rangeMessage =
-    alertType === 'high'
-      ? `${highInWindow.length || 1} high spike${(highInWindow.length || 1) > 1 ? 's' : ''} seen in this window`
-      : alertType === 'low'
-        ? `${lowInWindow.length || 1} low spike${(lowInWindow.length || 1) > 1 ? 's' : ''} seen in this window`
-        : null;
+
+  const rangeParts = [];
+  if (summary?.highCount) {
+    rangeParts.push(`${summary.highCount} high, peak ${formatMetricValue(summary.highPeak, metricId)}`);
+  }
+  if (summary?.lowCount) {
+    rangeParts.push(`${summary.lowCount} low, dip ${formatMetricValue(summary.lowDip, metricId)}`);
+  }
 
   return (
     <div
@@ -148,8 +168,8 @@ function ChartCard({
       }}
     >
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, flexWrap: 'wrap', gap: 8 }}>
-        <h2 style={{ fontSize: '1.35rem', fontWeight: 700, color: theme.text, margin: 0, display: 'flex', alignItems: 'center', gap: 10 }}>
-          <Icon size={24} color={color} />
+        <h2 style={{ fontSize: '1.25rem', fontWeight: 700, color: theme.text, margin: 0, display: 'flex', alignItems: 'center', gap: 10 }}>
+          <Icon size={23} color={color} />
           {title}
         </h2>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
@@ -158,17 +178,13 @@ function ChartCard({
               <AlertTriangle size={14} /> {anomalies.length} spike{anomalies.length > 1 ? 's' : ''}
             </span>
           )}
-          {visibleSpike && (
-            <span style={{ padding: '4px 10px', borderRadius: 8, background: `${theme.danger}22`, border: `1px solid ${theme.danger}55`, fontSize: 12, color: theme.danger, display: 'inline-flex', alignItems: 'center', gap: 6, fontWeight: 700 }}>
-              <AlertTriangle size={14} /> High spike seen
-            </span>
-          )}
           {alertType && <RangeInsightBadge type={alertType} metricKey={metricId} theme={theme} />}
           {!alertType && latest != null && optimalRange && (
-            <span style={{ padding: '4px 10px', borderRadius: 8, background: `${theme.success}22`, fontSize: 12, color: theme.success }}>✓ In range</span>
+            <span style={{ padding: '4px 10px', borderRadius: 8, background: `${theme.success}22`, fontSize: 12, color: theme.success }}>In range</span>
           )}
         </div>
       </div>
+
       <ResponsiveContainer width="100%" height={300}>
         <LineChart data={data}>
           <CartesianGrid strokeDasharray="3 3" stroke={isDarkMode ? 'rgba(255,255,255,0.1)' : theme.border} />
@@ -215,14 +231,15 @@ function ChartCard({
           />
         </LineChart>
       </ResponsiveContainer>
+
       {optimalRange && (
         <p style={{ marginTop: 12, fontSize: 12, color: theme.textMuted }}>
-          Target band: {optimalRange.min} – {optimalRange.max} {optimalRange.unit}
+          Target band: {optimalRange.min} - {optimalRange.max} {optimalRange.unit}
         </p>
       )}
-      {rangeMessage && (
+      {rangeParts.length > 0 && (
         <p style={{ margin: '8px 0 0', fontSize: 12, color: theme.danger, fontWeight: 700 }}>
-          {rangeMessage}. Check airflow and reservoir stability before the next cycle.
+          Out-of-range window: {rangeParts.join(' | ')}.
         </p>
       )}
       <MetricAnalysisPanel
@@ -245,22 +262,32 @@ const AnalyticsPage = ({ theme, isDarkMode, analyticsLiveRows = [], livePollMs =
     return rows.slice(-Number(timeRange));
   }, [analyticsLiveRows, timeRange]);
 
-  const getChartData = (metricId) => {
-    const field = FIELD_MAP[metricId];
-    const data = chartRows
-      .map((entry, index) => ({
-        readingLabel: entry.readingLabel || `#${index + 1}`,
-        [metricId]: entry[field] ?? null
-      }))
-      .filter((row) => row[metricId] != null);
-    return withVisibleHighSpike(metricId, data);
-  };
+  const chartDataByMetric = useMemo(() => {
+    return Object.keys(METRIC_CONFIG).reduce((acc, metricId) => {
+      const field = FIELD_MAP[metricId];
+      acc[metricId] = chartRows
+        .map((entry, index) => ({
+          readingLabel: entry.readingLabel || `#${index + 1}`,
+          [metricId]: entry[field] ?? null
+        }))
+        .filter((row) => row[metricId] != null);
+      return acc;
+    }, {});
+  }, [chartRows]);
+
+  const rangeSummaries = useMemo(
+    () =>
+      Object.keys(METRIC_CONFIG)
+        .map((metricId) => rangeSummaryForMetric(metricId, chartDataByMetric[metricId] || []))
+        .filter(Boolean),
+    [chartDataByMetric]
+  );
 
   return (
     <section style={{ marginBottom: 40 }}>
       <PageHeader
         title="Trends"
-        subtitle="Per-sensor history with target bands — hover alerts for cause and plant impact"
+        subtitle="Per-sensor history with target bands and range alerts"
         theme={theme}
       />
 
@@ -270,7 +297,7 @@ const AnalyticsPage = ({ theme, isDarkMode, analyticsLiveRows = [], livePollMs =
           borderRadius: 14,
           padding: 16,
           border: `1px solid ${theme.border}`,
-          marginBottom: 24,
+          marginBottom: 18,
           display: 'flex',
           alignItems: 'center',
           gap: 16,
@@ -279,7 +306,7 @@ const AnalyticsPage = ({ theme, isDarkMode, analyticsLiveRows = [], livePollMs =
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <Filter size={18} color={theme.accent} />
-          <span style={{ color: theme.text, fontWeight: 600, fontSize: 14 }}>📊 Window</span>
+          <span style={{ color: theme.text, fontWeight: 600, fontSize: 14 }}>Window</span>
         </div>
         <select
           value={timeRange}
@@ -302,18 +329,50 @@ const AnalyticsPage = ({ theme, isDarkMode, analyticsLiveRows = [], livePollMs =
           <option value="all">All readings</option>
         </select>
         <span style={{ color: theme.textMuted, fontSize: 13 }}>
-          Showing {chartRows.length} of {analyticsLiveRows.length} · refresh ~{Math.round(livePollMs / 1000)}s
+          Showing {chartRows.length} of {analyticsLiveRows.length} | refresh ~{Math.round(livePollMs / 1000)}s
         </span>
       </div>
+
+      {rangeSummaries.length > 0 && (
+        <div
+          style={{
+            background: theme.card,
+            borderRadius: 14,
+            padding: 16,
+            border: `1px solid ${theme.border}`,
+            marginBottom: 24
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: theme.text, fontWeight: 800, fontSize: 14, marginBottom: 12 }}>
+            <AlertTriangle size={17} color={theme.warning} />
+            Range summary
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 260px), 1fr))', gap: 10 }}>
+            {rangeSummaries.map((summary) => (
+              <div key={summary.metricId} style={{ background: theme.surface, border: `1px solid ${theme.border}`, borderRadius: 8, padding: 12 }}>
+                <div style={{ color: theme.text, fontWeight: 800, fontSize: 13, marginBottom: 6 }}>{summary.label}</div>
+                <div style={{ color: theme.textMuted, fontSize: 12, lineHeight: 1.6 }}>
+                  {summary.highCount > 0 && (
+                    <div>High: {formatMetricValue(summary.highPeak, summary.metricId)} across {summary.highCount} reading{summary.highCount === 1 ? '' : 's'}</div>
+                  )}
+                  {summary.lowCount > 0 && (
+                    <div>Low: {formatMetricValue(summary.lowDip, summary.metricId)} across {summary.lowCount} reading{summary.lowCount === 1 ? '' : 's'}</div>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {chartRows.length === 0 ? (
         <p style={{ color: theme.textMuted, textAlign: 'center', padding: 40 }}>No readings to chart yet.</p>
       ) : (
         <div style={{ display: 'grid', gap: 24, gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))' }}>
           {Object.entries(METRIC_CONFIG).map(([metricId, cfg]) => {
-            const data = getChartData(metricId);
+            const data = chartDataByMetric[metricId] || [];
             const Icon = cfg.icon;
-            const color = theme[cfg.colorKey] || theme.accent;
+            const color = cfg.color || theme[cfg.colorKey] || theme.accent;
             return (
               <ChartCard
                 key={metricId}

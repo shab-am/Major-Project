@@ -38,9 +38,12 @@ SPECIES_PROFILES = {
         'optimal_ranges': {
             'ph': {'min': 5.6, 'max': 6.4, 'label': '5.6-6.4'},
             'temperature': {'min': 18.0, 'max': 24.0, 'label': '18-24 C'},
+            'soil_temperature': {'min': 18.0, 'max': 26.0, 'label': '18-26 C'},
             'humidity': {'min': 55.0, 'max': 72.0, 'label': '55-72 %'},
+            'light_intensity': {'min': 350.0, 'max': 650.0, 'label': '350-650 lux'},
             'tds': {'min': 560.0, 'max': 840.0, 'label': '560-840 ppm'},
-            'dissolved_oxygen': {'min': 5.0, 'max': 9.0, 'label': '5-9 mg/L'}
+            'dissolved_oxygen': {'min': 5.0, 'max': 9.0, 'label': '5-9 mg/L'},
+            'ec': {'min': 0.85, 'max': 2.1, 'label': '0.85-2.1 mS/cm'}
         }
     },
     'Red Lettuce': {
@@ -48,9 +51,12 @@ SPECIES_PROFILES = {
         'optimal_ranges': {
             'ph': {'min': 5.6, 'max': 6.4, 'label': '5.6-6.4'},
             'temperature': {'min': 17.0, 'max': 23.0, 'label': '17-23 C'},
+            'soil_temperature': {'min': 18.0, 'max': 26.0, 'label': '18-26 C'},
             'humidity': {'min': 55.0, 'max': 72.0, 'label': '55-72 %'},
+            'light_intensity': {'min': 350.0, 'max': 650.0, 'label': '350-650 lux'},
             'tds': {'min': 560.0, 'max': 840.0, 'label': '560-840 ppm'},
-            'dissolved_oxygen': {'min': 5.0, 'max': 9.0, 'label': '5-9 mg/L'}
+            'dissolved_oxygen': {'min': 5.0, 'max': 9.0, 'label': '5-9 mg/L'},
+            'ec': {'min': 0.85, 'max': 2.1, 'label': '0.85-2.1 mS/cm'}
         }
     },
     'Butterhead': {
@@ -58,9 +64,12 @@ SPECIES_PROFILES = {
         'optimal_ranges': {
             'ph': {'min': 5.5, 'max': 6.3, 'label': '5.5-6.3'},
             'temperature': {'min': 18.0, 'max': 24.0, 'label': '18-24 C'},
+            'soil_temperature': {'min': 18.0, 'max': 26.0, 'label': '18-26 C'},
             'humidity': {'min': 55.0, 'max': 70.0, 'label': '55-70 %'},
+            'light_intensity': {'min': 350.0, 'max': 650.0, 'label': '350-650 lux'},
             'tds': {'min': 600.0, 'max': 900.0, 'label': '600-900 ppm'},
-            'dissolved_oxygen': {'min': 5.0, 'max': 9.0, 'label': '5-9 mg/L'}
+            'dissolved_oxygen': {'min': 5.0, 'max': 9.0, 'label': '5-9 mg/L'},
+            'ec': {'min': 0.85, 'max': 2.1, 'label': '0.85-2.1 mS/cm'}
         }
     }
 }
@@ -79,6 +88,17 @@ PLANT_ROSTER = [
     {'plant_code': 'BH-03', 'display_name': 'Butterhead 3', 'species': 'Butterhead'},
     {'plant_code': 'BH-04', 'display_name': 'Butterhead 4', 'species': 'Butterhead'},
 ]
+
+METRIC_LABELS = {
+    'ph': 'Water pH',
+    'temperature': 'Ambient Temperature',
+    'soil_temperature': 'Water Temperature',
+    'humidity': 'Humidity',
+    'light_intensity': 'Light Intensity',
+    'tds': 'TDS',
+    'dissolved_oxygen': 'Dissolved Oxygen',
+    'ec': 'EC'
+}
 
 
 def _number(value):
@@ -118,7 +138,7 @@ def _snapshot_from_row(row, project_mode):
 
 def _range_violations(snapshot, ranges):
     violations = []
-    for metric_key in ('ph', 'temperature', 'humidity', 'tds', 'dissolved_oxygen'):
+    for metric_key in ('ph', 'temperature', 'soil_temperature', 'humidity', 'light_intensity', 'tds', 'dissolved_oxygen', 'ec'):
         reading = snapshot.get(metric_key)
         target = ranges.get(metric_key)
         if reading is None or not target:
@@ -127,7 +147,7 @@ def _range_violations(snapshot, ranges):
         if reading < target['min']:
             violations.append({
                 'metric': metric_key,
-                'label': metric_key.replace('_', ' ').title(),
+                'label': METRIC_LABELS.get(metric_key, metric_key.replace('_', ' ').title()),
                 'value': reading,
                 'min': target['min'],
                 'max': target['max'],
@@ -138,7 +158,7 @@ def _range_violations(snapshot, ranges):
         elif reading > target['max']:
             violations.append({
                 'metric': metric_key,
-                'label': metric_key.replace('_', ' ').title(),
+                'label': METRIC_LABELS.get(metric_key, metric_key.replace('_', ' ').title()),
                 'value': reading,
                 'min': target['min'],
                 'max': target['max'],
@@ -202,7 +222,7 @@ def _build_live_setup(project_rows, plant_rows):
     health_counts = Counter(plant['health_status'] for plant in plants)
     species_counts = Counter(plant['species'] for plant in plants)
     averages = {}
-    for metric_key in ('ph', 'temperature', 'humidity', 'tds', 'dissolved_oxygen', 'ec', 'electrochemical_signal'):
+    for metric_key in ('ph', 'temperature', 'soil_temperature', 'humidity', 'light_intensity', 'tds', 'dissolved_oxygen', 'ec', 'electrochemical_signal'):
         values = [plant['metrics'].get(metric_key) for plant in plants]
         values = [value for value in values if value is not None]
         averages[metric_key] = round(sum(values) / len(values), 2) if values else None
