@@ -14,7 +14,7 @@ from database import Database
 
 # ── Config ─────────────────────────────────────────────
 SENSOR_PORT        = os.getenv('SERIAL_PORT',       '/dev/ttyACM0')
-POTENTIOSTAT_PORT  = os.getenv('POTENTIOSTAT_PORT',  '/dev/ttyACM1')
+POTENTIOSTAT_PORT  = os.getenv('POTENTIOSTAT_PORT',  '/dev/ttyUSB0')
 BAUD_RATE          = int(os.getenv('BAUD_RATE', 115200))
 SOCKET_SERVER_URL  = os.getenv('SOCKET_SERVER_URL',  'http://localhost:5000')
 SIMULATION_MODE    = os.getenv('SIMULATION_MODE',    'true').lower() == 'true'

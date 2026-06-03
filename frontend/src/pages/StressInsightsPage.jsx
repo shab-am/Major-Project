@@ -92,10 +92,12 @@ const StressInsightsPage = ({
   const [completedRecommendations, setCompletedRecommendations] = useState([]);
   const [animatingCard, setAnimatingCard] = useState(null);
 
-  const activeMetrics = useMemo(
-    () => aggregateAlerts(outOfRangeValues, plants),
-    [outOfRangeValues, plants]
-  );
+  const activeMetrics = useMemo(() => { // Hardcoded demo alerts: only pH and TDS; ambient temperature removed
+    return [
+      { metric: 'ph', label: METRIC_LABELS['ph'], target: '5.6-6.4', highCount: 0, lowCount: 2, highValue: null, lowValue: 5.2, severity: 'High Stress' },
+      { metric: 'tds', label: METRIC_LABELS['tds'], target: '560-840', highCount: 1, lowCount: 0, highValue: 900, lowValue: null, severity: 'Moderate' }
+    ];
+  }, []);
 
   const activeRecommendation = useMemo(() => {
     if (!activeMetrics.length || completedRecommendations.includes(ACTIVE_ALERT_ID)) return null;
