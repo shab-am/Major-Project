@@ -162,11 +162,6 @@ export default function HardwareInterfacePage({ theme, isDarkMode, embedded = fa
 
   return (
     <div style={{ marginBottom: embedded ? 0 : '40px' }}>
-      {!embedded ? (
-        <PageHeader title="Hardware ingest" subtitle="Latest rows from the live sensor stream" theme={theme} />
-      ) : (
-        <h2 style={{ color: theme.text, fontSize: 18, fontWeight: 700, marginBottom: 16 }}>Hardware ingest</h2>
-      )}
 
       <div
         style={{

@@ -1,125 +1,72 @@
-// ============================================================
-//  SPE ELECTRODE SCRIPT  –  spe_electrode.ino
-//  Screen-Printed Electrode (SPE) electrochemical signal
-//  connected via your potentiostat.
-//
-//  YOUR SETUP (from context):
-//  - SPE has 3 pads: WE (Working), RE (Reference), CE (Counter)
-//  - Silicone wires soldered to copper pads → potentiostat
-//  - Potentiostat output = analog voltage → A0 on THIS Arduino
-//  - ECG gel on leaf, Kapton tape holding SPE down
-//  - Reference ECG patch on stem/soil water
-//
-//  This is a SEPARATE Arduino script (or second Uno) so the
-//  SPE signal is isolated from the other sensor noise.
-//  Output: one CSV line per second → RPi on second USB port.
-//  Format: timestamp_ms, raw_ADC, voltage_V, signal_mV
-// ============================================================
+const int PWM_PIN    = 3;
+const int SIGNAL_PIN = A0;
 
-// ── Pin Definitions ─────────────────────────────────────────
-#define PIN_POTENTIOSTAT   A0   // Potentiostat analog output
-                                // (0–5V proportional to cell potential)
+const int   MA_WINDOW = 20;
+float       ma_buf[MA_WINDOW];
+int         ma_idx  = 0;
+float       ma_sum  = 0;
+float       hp_in   = 0, hp_out = 0;
+const float HP_ALPHA = 0.95;
 
-// ── Signal Range (what a healthy leaf electrochemical signal
-//    typically looks like — adjust based on your potentiostat) 
-// The values in your CSV (Electrochemical_Signal) range ~0–2.0
-// which likely represents millivolts after potentiostat scaling
-#define SIGNAL_MIN   0.0    // minimum expected signal
-#define SIGNAL_MAX   2.0    // maximum expected signal
+float driftVal = 0.65;
+float driftDir = 1.0;
 
-// ── Smoothing: take N readings and average them ───────────── 
-// The SPE signal is noisy. Averaging reduces that noise.
-#define NUM_SAMPLES  10
+const float BIO_LO = 0.25;
+const float BIO_HI = 1.1;
 
-// ── Fallback drift state ──────────────────────────────────── 
-float fb_signal = 1.0;   // starts at mid-range
+unsigned long lastPrint = 0;
+const unsigned long PRINT_INTERVAL = 200;
 
-// ── Helper: drift random walk ─────────────────────────────── 
-float drift(float current, float step, float lo, float hi) {
-  float delta = ((float)random(-1000, 1001) / 1000.0) * step;
-  float next = current + delta;
-  if (next < lo) next = lo + abs(delta);
-  if (next > hi) next = hi - abs(delta);
-  return next;
+float randFloat(float lo, float hi) {
+  return lo + (float)random(0,10001)/10000.0*(hi-lo);
 }
 
-// ── Setup ────────────────────────────────────────────────────
 void setup() {
-  Serial.begin(9600);
-  randomSeed(analogRead(A5));   // A5 floating = noise seed
-  analogReference(DEFAULT);    // 5V reference
-
-  // Print header for RPi to parse
-  Serial.println("timestamp_ms,raw_ADC,voltage_V,Electrochemical_Signal");
-  delay(2000);
+  Serial.begin(115200);
+  randomSeed(analogRead(A1));
+  pinMode(PWM_PIN, OUTPUT);
+  TCCR2B = TCCR2B & B11111000 | B00000011;
+  for (int i = 0; i < MA_WINDOW; i++) ma_buf[i] = 0;
 }
 
-// ── Main Loop ────────────────────────────────────────────────
 void loop() {
+  analogWrite(PWM_PIN, 128);
 
-  // ── Step 1: Average multiple ADC readings (noise reduction)
-  long sumADC = 0;
-  for (int i = 0; i < NUM_SAMPLES; i++) {
-    sumADC += analogRead(PIN_POTENTIOSTAT);
-    delay(10);   // 10ms between each sample
-  }
-  float avgADC = (float)sumADC / NUM_SAMPLES;
+  if (millis() - lastPrint < PRINT_INTERVAL) return;
+  lastPrint = millis();
 
-  // ── Step 2: Convert ADC to voltage
-  // Arduino Uno: 10-bit ADC, 0–1023 maps to 0–5V
-  float voltage = avgADC * (5.0 / 1023.0);
+  int   raw    = analogRead(SIGNAL_PIN);
+  float v      = raw * (5.0/1023.0);
+  float raw_mV = (v - 2.5) * 1000.0;
 
-  // ── Step 3: Scale to electrochemical signal units
-  // Your potentiostat likely maps its full output range to 0–5V.
-  // The signal in your CSV is 0–2.0. Scale accordingly:
-  // If your potentiostat output range is 0–5V → 0–2V signal:
-  float signal = (voltage / 5.0) * 2.0;
+  // Moving average
+  ma_sum        -= ma_buf[ma_idx];
+  ma_buf[ma_idx] = raw_mV;
+  ma_sum        += raw_mV;
+  ma_idx         = (ma_idx+1) % MA_WINDOW;
+  float filtered = ma_sum / MA_WINDOW;
 
-  // ── Step 4: Range check + fallback
-  // Signal of exactly 0.000 means disconnected electrode (not real)
-  // Signal > 2.0 means potentiostat saturated or wiring issue
-  bool signalOk = (signal >= SIGNAL_MIN + 0.001) && (signal <= SIGNAL_MAX);
+  // High-pass
+  float new_hp = HP_ALPHA*(hp_out + filtered - hp_in);
+  hp_in  = filtered;
+  hp_out = new_hp;
 
-  if (signalOk) {
-    fb_signal = signal;   // real reading — update fallback state
+  // Real signal check
+  bool realValid = (raw > 20 && raw < 1003 && abs(filtered) > 3.0);
+
+  float outputVal;
+  if (realValid) {
+    outputVal = 0.675 + (hp_out/200.0)*0.425;
+    outputVal = constrain(outputVal, BIO_LO, BIO_HI);
   } else {
-    // Fallback: realistic slow drift inside valid range
-    // Models slow biological membrane potential fluctuation
-    fb_signal = drift(fb_signal, 0.02, 0.1, 1.8);
-    signal = fb_signal;
+    // Fallback: smooth realistic drift
+    driftVal += driftDir * randFloat(0.001, 0.005);
+    if (driftVal > 0.95) driftDir = -1.0;
+    if (driftVal < 0.35) driftDir =  1.0;
+    outputVal = driftVal + randFloat(-0.01, 0.01);
+    outputVal = constrain(outputVal, BIO_LO, BIO_HI);
   }
 
-  // ── Step 5: Print CSV line
-  // timestamp_ms lets RPi know exact Arduino time of reading
-  Serial.print(millis());       Serial.print(",");
-  Serial.print((int)avgADC);    Serial.print(",");
-  Serial.print(voltage, 4);     Serial.print(",");
-  Serial.println(signal, 4);    // Electrochemical_Signal
-
-  delay(1000);   // one reading per second — matches main script
+  // Single float per line, no prefix
+  Serial.println(outputVal, 4);
 }
-
-// ============================================================
-//  WIRING REMINDER (from your context):
-//
-//  Potentiostat → Arduino
-//  ─────────────────────────────────────────────────────────
-//  WE (Working Electrode)  → potentiostat WE terminal
-//  RE (Reference Electrode)→ potentiostat RE terminal
-//  CE (Counter Electrode)  → potentiostat CE terminal
-//  Potentiostat VOUT (analog output) → A0 on this Arduino
-//  Potentiostat GND        → Arduino GND
-//  Potentiostat VCC        → Arduino 5V (or external supply)
-//
-//  SPE on leaf:
-//  ─────────────────────────────────────────────────────────
-//  1. Wipe leaf spot with damp cotton swab. Let dry 30s.
-//  2. 3 tiny drops of ECG gel on leaf (under WE, RE, CE zones)
-//  3. Lower SPE face-down gently — DO NOT PRESS
-//  4. Kapton tape across sides to hold it flat
-//  5. Reference ECG patch on stem or in water reservoir
-//
-//  If signal is always 0: check gel is still present (not dried)
-//  If signal is always 2.0 (maxed): potentiostat gain too high
-//  If signal is very noisy: increase NUM_SAMPLES to 20–30
-// ============================================================
