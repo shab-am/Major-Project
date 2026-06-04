@@ -5,6 +5,24 @@ import ChartTooltipThemed from '../components/ChartTooltipThemed';
 import { useLiveSensor } from '../context/LiveSensorContext';
 import { getBioSignalInsight } from '../utils/metricInsights';
 
+const BIO_HEALTHY_RANGE = [0.55, 0.95];
+const BIO_MIN_VISIBLE_SPAN = 0.08;
+
+function getBioDomain(series) {
+  const values = (series || [])
+    .map((point) => Number(point.value))
+    .filter((value) => Number.isFinite(value));
+  if (!values.length) return BIO_HEALTHY_RANGE;
+
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const center = (min + max) / 2;
+  const span = Math.max(max - min, BIO_MIN_VISIBLE_SPAN);
+  const low = Math.max(0, center - span / 2);
+  const high = center + span / 2;
+  return [Number(low.toFixed(3)), Number(high.toFixed(3))];
+}
+
 function BioTooltip({ active, payload, label, theme, isDarkMode, series }) {
   if (!active || !payload?.length) return null;
   const idx = series.findIndex((p) => p.readingLabel === label);
@@ -24,6 +42,7 @@ function BioTooltip({ active, payload, label, theme, isDarkMode, series }) {
 
 export default function BioSignalsPage({ theme, isDarkMode, embedded = false }) {
   const { bioSeriesElectrochemical } = useLiveSensor();
+  const bioDomain = getBioDomain(bioSeriesElectrochemical);
 
   return (
     <section style={{ marginBottom: embedded ? 0 : 32 }}>
@@ -56,7 +75,13 @@ export default function BioSignalsPage({ theme, isDarkMode, embedded = false }) 
             <LineChart data={bioSeriesElectrochemical}>
               <CartesianGrid strokeDasharray="3 3" stroke={theme.border} />
               <XAxis dataKey="readingLabel" stroke={theme.textMuted} tick={{ fontSize: 9 }} />
-              <YAxis stroke={theme.textMuted} tick={{ fontSize: 9 }} />
+              <YAxis
+                stroke={theme.textMuted}
+                tick={{ fontSize: 9 }}
+                domain={bioDomain}
+                tickFormatter={(value) => Number(value).toFixed(3)}
+                width={46}
+              />
               <Tooltip
                 content={(props) => (
                   <BioTooltip {...props} theme={theme} isDarkMode={isDarkMode} series={bioSeriesElectrochemical} />

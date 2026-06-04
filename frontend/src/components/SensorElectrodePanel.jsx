@@ -4,6 +4,9 @@ import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip } from 'rec
 import ChartTooltipThemed from './ChartTooltipThemed';
 import { getBioSignalInsight } from '../utils/metricInsights';
 
+const BIO_HEALTHY_RANGE = [0.55, 0.95];
+const BIO_MIN_VISIBLE_SPAN = 0.08;
+
 const PROBES = [
   { key: 'ph', label: 'pH probe', icon: Droplets, emoji: '💧', fields: ['ph_value', 'soil_ph', 'ph'] },
   { key: 'ec', label: 'EC / TDS', icon: Gauge, emoji: '⚡', fields: ['ec_value', 'ec', 'tds_value', 'tds'] },
@@ -18,6 +21,21 @@ function pickField(row, fields) {
     if (v != null && v !== '' && !Number.isNaN(Number(v))) return Number(v);
   }
   return null;
+}
+
+function getBioDomain(series) {
+  const values = (series || [])
+    .map((point) => Number(point.value))
+    .filter((value) => Number.isFinite(value));
+  if (!values.length) return BIO_HEALTHY_RANGE;
+
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const center = (min + max) / 2;
+  const span = Math.max(max - min, BIO_MIN_VISIBLE_SPAN);
+  const low = Math.max(0, center - span / 2);
+  const high = center + span / 2;
+  return [Number(low.toFixed(3)), Number(high.toFixed(3))];
 }
 
 export default function SensorElectrodePanel({ theme, isDarkMode, latestSnapshot, bioSeries = [], pollIntervalMs = 3000 }) {
@@ -43,6 +61,7 @@ export default function SensorElectrodePanel({ theme, isDarkMode, latestSnapshot
     const cur = bioSeries[bioSeries.length - 1]?.value;
     return getBioSignalInsight(prev, cur);
   }, [bioSeries]);
+  const bioDomain = useMemo(() => getBioDomain(bioSeries), [bioSeries]);
 
   return (
     <section
@@ -108,7 +127,13 @@ export default function SensorElectrodePanel({ theme, isDarkMode, latestSnapshot
             <ResponsiveContainer width="100%" height={120}>
               <LineChart data={bioSeries}>
                 <XAxis dataKey="readingLabel" hide />
-                <YAxis stroke={theme.textMuted} tick={{ fontSize: 9 }} width={32} />
+                <YAxis
+                  stroke={theme.textMuted}
+                  tick={{ fontSize: 9 }}
+                  width={46}
+                  domain={bioDomain}
+                  tickFormatter={(value) => Number(value).toFixed(3)}
+                />
                 <Tooltip content={<ChartTooltipThemed theme={theme} isDarkMode={isDarkMode} />} />
                 <Line
                   type="monotone"

@@ -32,12 +32,6 @@ const rowFingerprint = (row) => JSON.stringify(row);
 const rowKeyFor = (row, fallback) =>
   row?.id ?? row?.timestamp ?? row?.recorded_at ?? fallback ?? rowFingerprint(row);
 
-const keepExistingRowsStable = (rows, previousRows) =>
-  rows.map((row, index) => {
-    const key = rowKeyFor(row, `row-${index}`);
-    return previousRows.get(key) || row;
-  });
-
 const formatTableValue = (value, key) => {
   if (value === null || value === undefined) return '--';
   if (isTimeLikeKey(key)) {
@@ -94,7 +88,6 @@ export default function HardwareInterfacePage({ theme, isDarkMode, embedded = fa
   const previousRowsRef = useRef(new Map());
   const {
     payload,
-    loading,
     error,
     refetch,
     pollIntervalMs,
@@ -112,7 +105,7 @@ export default function HardwareInterfacePage({ theme, isDarkMode, embedded = fa
   const activePayload = displayPayload || payload;
   const latest = activePayload?.latest || null;
   const sourceRows = useMemo(
-    () => keepExistingRowsStable(getRowsFromPayload(activePayload, primarySource), previousRowsRef.current),
+    () => getRowsFromPayload(activePayload, primarySource),
     // tableVersion forces re-read after manual refresh
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [activePayload, primarySource, tableVersion]
@@ -167,8 +160,7 @@ export default function HardwareInterfacePage({ theme, isDarkMode, embedded = fa
     try {
       const freshPayload = await refetch({ limit: 200 });
       if (freshPayload) {
-        const rawFreshRows = getRowsFromPayload(freshPayload, freshPayload.primary_source);
-        const freshRows = keepExistingRowsStable(rawFreshRows, prevMap);
+        const freshRows = getRowsFromPayload(freshPayload, freshPayload.primary_source);
         const cellChanges = {};
         freshRows.slice(0, VISIBLE_ROW_LIMIT).forEach((row) => {
           const id = rowKeyFor(row);
@@ -184,7 +176,7 @@ export default function HardwareInterfacePage({ theme, isDarkMode, embedded = fa
         });
 
         const nextMap = new Map(prevMap);
-        rawFreshRows.slice(0, VISIBLE_ROW_LIMIT).forEach((row, index) => {
+        freshRows.slice(0, VISIBLE_ROW_LIMIT).forEach((row, index) => {
           const key = rowKeyFor(row, `row-${index}`);
           if (!nextMap.has(key)) nextMap.set(key, { ...row });
         });
@@ -247,7 +239,7 @@ export default function HardwareInterfacePage({ theme, isDarkMode, embedded = fa
             <button
               type="button"
               onClick={handleManualRefresh}
-              disabled={loading || manualRefreshing}
+              disabled={manualRefreshing}
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
@@ -259,12 +251,12 @@ export default function HardwareInterfacePage({ theme, isDarkMode, embedded = fa
                 color: theme.text,
                 fontSize: '13px',
                 fontWeight: '600',
-                cursor: loading || manualRefreshing ? 'wait' : 'pointer',
-                opacity: loading || manualRefreshing ? 0.7 : 1
+                cursor: manualRefreshing ? 'wait' : 'pointer',
+                opacity: manualRefreshing ? 0.7 : 1
               }}
             >
               <RefreshCw size={15} className={manualRefreshing ? 'spin-icon' : ''} />
-              {loading || manualRefreshing ? 'Refreshing...' : 'Refresh table'}
+              {manualRefreshing ? 'Refreshing...' : 'Refresh table'}
             </button>
             <button
               type="button"

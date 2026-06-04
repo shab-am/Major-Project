@@ -31,7 +31,8 @@ const METRICS = [
     color: '#14b8a6',
     fields: ['ph_value', 'soil_ph', 'ph'],
     decimals: 2,
-    range: [5.6, 6.4]
+    range: [5.6, 6.4],
+    trendRange: [5.75, 6.25]
   },
   {
     key: 'ambient_temperature',
@@ -41,7 +42,8 @@ const METRICS = [
     color: '#f97316',
     fields: ['ambient_temperature', 'temperature'],
     decimals: 1,
-    range: [18, 24]
+    range: [18, 24],
+    trendRange: [20.8, 22.6]
   },
   {
     key: 'water_temperature',
@@ -52,6 +54,7 @@ const METRICS = [
     fields: ['soil_temperature', 'water_temperature'],
     decimals: 1,
     range: [18, 26],
+    trendRange: [20.0, 22.3],
     dash: '5 4'
   },
   {
@@ -62,7 +65,8 @@ const METRICS = [
     color: '#2563eb',
     fields: ['humidity'],
     decimals: 1,
-    range: [55, 72]
+    range: [55, 72],
+    trendRange: [60.0, 68.5]
   },
   {
     key: 'light_intensity',
@@ -73,6 +77,7 @@ const METRICS = [
     fields: ['light_intensity'],
     decimals: 0,
     range: [350, 650],
+    trendRange: [430, 600],
     dash: '2 5'
   },
   {
@@ -84,6 +89,7 @@ const METRICS = [
     fields: ['dissolved_oxygen', 'dissolvedOxy'],
     decimals: 2,
     range: [5, 9],
+    trendRange: [6.2, 7.8],
     dash: '8 4'
   },
   {
@@ -95,6 +101,7 @@ const METRICS = [
     fields: ['ec_value', 'ec'],
     decimals: 3,
     range: [0.85, 2.1],
+    trendRange: [1.2, 1.7],
     dash: '10 5 2 5'
   },
   {
@@ -106,6 +113,7 @@ const METRICS = [
     fields: ['tds_value', 'tds'],
     decimals: 0,
     range: [560, 840],
+    trendRange: [650, 800],
     dash: '3 4'
   },
   {
@@ -132,10 +140,11 @@ const TREND_METRIC_KEYS = [
 const TREND_METRICS = METRICS.filter((metric) => TREND_METRIC_KEYS.includes(metric.key));
 
 function normalizeForTrend(value, metric) {
-  if (value === null || !Number.isFinite(value) || !metric.range) return null;
-  const [min, max] = metric.range;
+  const range = metric.trendRange || metric.range;
+  if (value === null || !Number.isFinite(value) || !range) return null;
+  const [min, max] = range;
   if (max === min) return 50;
-  return Math.max(0, Math.min(100, 20 + ((value - min) / (max - min)) * 60));
+  return Math.max(0, Math.min(100, 10 + ((value - min) / (max - min)) * 80));
 }
 
 function pickNumber(row, fields) {
@@ -304,7 +313,7 @@ const Dashboard = ({
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 12, flexWrap: 'wrap' }}>
             <div>
               <h2 style={{ color: theme.text, fontSize: 18, margin: 0 }}>Live sensor trend</h2>
-              <p style={{ color: theme.textMuted, fontSize: 12, margin: '4px 0 0' }}>Normalized to each sensor target band for easier comparison</p>
+              <p style={{ color: theme.textMuted, fontSize: 12, margin: '4px 0 0' }}>Zoomed to the healthy band so small live changes stay visible</p>
             </div>
             <div style={{ color: theme.textMuted, fontSize: 12 }}>
               Refresh {Math.round(livePollMs / 1000)}s | Updated {lastUpdated}
@@ -328,15 +337,15 @@ const Dashboard = ({
                 stroke={theme.textMuted}
                 tick={{ fontSize: 11 }}
                 domain={[0, 100]}
-                ticks={[0, 20, 50, 80, 100]}
+                ticks={[10, 50, 90]}
                 width={38}
                 tickFormatter={(value) => (value === 50 ? 'target' : value)}
                 tickLine={false}
                 axisLine={false}
                 label={{ value: 'target scale', fill: theme.textMuted, fontSize: 10, angle: -90, position: 'insideLeft' }}
               />
-              <ReferenceLine yAxisId="main" y={20} stroke={theme.success} strokeOpacity={0.35} strokeDasharray="6 5" />
-              <ReferenceLine yAxisId="main" y={80} stroke={theme.success} strokeOpacity={0.35} strokeDasharray="6 5" />
+              <ReferenceLine yAxisId="main" y={10} stroke={theme.success} strokeOpacity={0.35} strokeDasharray="6 5" />
+              <ReferenceLine yAxisId="main" y={90} stroke={theme.success} strokeOpacity={0.35} strokeDasharray="6 5" />
               <Tooltip content={<TrendTooltip theme={theme} metricsByKey={metricsByKey} />} />
               {TREND_METRICS.map((metric) => (
                 <Line
