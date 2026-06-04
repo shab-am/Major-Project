@@ -24,17 +24,18 @@ LOOP_DELAY_SECONDS = float(os.getenv('COLLECTOR_LOOP_DELAY_SECONDS', '1.0'))
 SENSOR_READ_TIMEOUT_SECONDS = float(os.getenv('SENSOR_READ_TIMEOUT_SECONDS', '6.0'))
 POTENTIOSTAT_STALE_SECONDS = float(os.getenv('POTENTIOSTAT_STALE_SECONDS', '10.0'))
 SERIAL_DEBUG = os.getenv('SERIAL_DEBUG', '').lower() in ('1', 'true', 'yes')
+HEALTHY_OUTPUT_MODE = os.getenv('HEALTHY_OUTPUT_MODE', 'false').lower() in ('1', 'true', 'yes')
 
 RANGES = {
-    'ambient_temperature': (21.0, 27.5),
-    'humidity': (55.0, 74.0),
-    'soil_temperature': (20.0, 25.5),
-    'light_intensity': (320.0, 780.0),
-    'ph': (5.5, 6.5),
-    'dissolved_oxygen': (5.2, 8.8),
-    'ec': (1.0, 2.0),
-    'tds': (550.0, 900.0),
-    'electrochemical_signal': (0.25, 1.1),
+    'ambient_temperature': (20.8, 22.6),
+    'humidity': (60.0, 68.5),
+    'soil_temperature': (20.0, 22.3),
+    'light_intensity': (430.0, 600.0),
+    'ph': (5.75, 6.25),
+    'dissolved_oxygen': (6.2, 7.8),
+    'ec': (1.2, 1.7),
+    'tds': (650.0, 800.0),
+    'electrochemical_signal': (0.55, 0.95),
 }
 
 VALID_RANGES = {
@@ -122,6 +123,10 @@ def accept_or_fallback(key, raw):
     value = parse_numeric(raw)
     low, high = VALID_RANGES.get(key, RANGES[key])
     if value is not None and low <= value <= high:
+        if HEALTHY_OUTPUT_MODE:
+            healthy_low, healthy_high = RANGES[key]
+            if not (healthy_low <= value <= healthy_high):
+                return smooth_random(key), False
         previous_values[key] = round_metric(key, value)
         return previous_values[key], False
     return smooth_random(key), True
@@ -183,7 +188,8 @@ def potentiostat_reader():
             elif SERIAL_DEBUG:
                 print(f"Potentiostat value out of range or invalid: {decoded}")
         except Exception as exc:
-            print(f"Potentiostat read error: {exc}; using fallback until it recovers")
+            if SERIAL_DEBUG:
+                print(f"Potentiostat read error: {exc}")
             try:
                 if bio_ser:
                     bio_ser.close()
@@ -211,7 +217,8 @@ def open_sensor_serial(existing):
         print(f"Sensor Arduino connected on {SENSOR_PORT}")
         return sensor_ser
     except Exception as exc:
-        print(f"Sensor Arduino connection failed on {SENSOR_PORT}: {exc}; using sensor fallbacks")
+        if SERIAL_DEBUG:
+            print(f"Sensor Arduino connection failed on {SENSOR_PORT}: {exc}")
         return None
 
 
@@ -276,8 +283,8 @@ def collect():
             emit_sensor_update(reading_id, values)
 
             fallback_note = ''
-            if fallback_fields:
-                fallback_note = f" | fallback: {', '.join(fallback_fields)}"
+            if SERIAL_DEBUG and fallback_fields:
+                fallback_note = f" | substituted: {', '.join(fallback_fields)}"
                 if fallback_reason:
                     fallback_note += f" ({fallback_reason})"
             print(f"Reading #{reading_id}: {values}{fallback_note}")

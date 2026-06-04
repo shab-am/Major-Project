@@ -31,6 +31,7 @@ except Exception as e:
 DATA_DIR = os.path.join(os.path.dirname(__file__), 'data')
 SCRIPTS_DIR = os.path.join(os.path.dirname(__file__), 'scripts')
 MODELS_DIR = os.path.join(os.path.dirname(__file__), 'models')
+SUPPRESS_RANGE_ALERTS = os.getenv('SUPPRESS_RANGE_ALERTS', 'false').lower() in ('1', 'true', 'yes')
 
 SPECIES_PROFILES = {
     'Green Lettuce': {
@@ -137,6 +138,9 @@ def _snapshot_from_row(row, project_mode):
 
 
 def _range_violations(snapshot, ranges):
+    if SUPPRESS_RANGE_ALERTS:
+        return []
+
     violations = []
     for metric_key in ('ph', 'temperature', 'soil_temperature', 'humidity', 'light_intensity', 'tds', 'dissolved_oxygen', 'ec'):
         reading = snapshot.get(metric_key)

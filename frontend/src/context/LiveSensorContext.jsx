@@ -20,6 +20,10 @@ import {
 const POLL_MS = 5000;
 const LiveSensorContext = createContext(null);
 
+function hasRows(data) {
+  return Boolean((data?.project_readings?.length ?? 0) || (data?.plant_readings?.length ?? 0));
+}
+
 function wantsStressDemoSensorStream() {
   if (typeof window === 'undefined') return false;
   if (process.env.REACT_APP_SENSOR_STRESS_DEMO === 'true') return true;
@@ -76,6 +80,7 @@ export function LiveSensorProvider({ children }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const mounted = useRef(true);
+  const latestPayloadRef = useRef(payload);
 
   const refetch = useCallback(async (options = {}) => {
     const limit = options.limit ?? 200;
@@ -86,12 +91,25 @@ export function LiveSensorProvider({ children }) {
         stressDemo: options.stressDemo ?? wantsStressDemoSensorStream()
       });
       if (!mounted.current) return;
-      setPayload(data);
+      if (hasRows(data)) {
+        latestPayloadRef.current = data;
+        setPayload(data);
+      } else if (hasRows(latestPayloadRef.current)) {
+        setPayload(latestPayloadRef.current);
+      } else {
+        setPayload(data);
+      }
       setError(data._ok ? null : data.message || `Server returned ${data._status}`);
       return data;
     } catch (err) {
       if (!mounted.current) return;
-      setPayload(null);
+      const cached = latestPayloadRef.current;
+      if (hasRows(cached)) {
+        latestPayloadRef.current = cached;
+        setPayload(cached);
+      } else {
+        setPayload(null);
+      }
       setError(err.message || 'Network error');
       return null;
     } finally {

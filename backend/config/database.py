@@ -5,6 +5,7 @@ Handles database connections and operations for plant readings
 
 import mariadb
 import os
+import threading
 from decimal import Decimal
 from dotenv import load_dotenv
 
@@ -39,6 +40,7 @@ def _public_row_dict(columns, row):
 class Database:
     def __init__(self):
         """Initialize database connection"""
+        self._lock = threading.RLock()
         try:
             self.conn = mariadb.connect(
                 user=os.getenv('DB_USER', 'hydro_user'),
@@ -95,9 +97,10 @@ class Database:
                 data.get('prediction_confidence')
             )
             
-            self.cursor.execute(query, values)
-            self.conn.commit()
-            return self.cursor.lastrowid
+            with self._lock:
+                self.cursor.execute(query, values)
+                self.conn.commit()
+                return self.cursor.lastrowid
         except mariadb.Error as e:
             print(f"ERROR inserting reading: {e}")
             return None
@@ -115,20 +118,22 @@ class Database:
                     ORDER BY timestamp DESC 
                     LIMIT ?
                 """
-                self.cursor.execute(query, (plant_id, limit))
+                params = (plant_id, limit)
             else:
                 query = """
                     SELECT * FROM project_readings 
                     ORDER BY timestamp DESC 
                     LIMIT ?
                 """
-                self.cursor.execute(query, (limit,))
+                params = (limit,)
             
-            columns = [desc[0] for desc in self.cursor.description]
-            results = []
-            for row in self.cursor.fetchall():
-                results.append(_public_row_dict(columns, row))
-            return results
+            with self._lock:
+                self.cursor.execute(query, params)
+                columns = [desc[0] for desc in self.cursor.description]
+                results = []
+                for row in self.cursor.fetchall():
+                    results.append(_public_row_dict(columns, row))
+                return results
         except mariadb.Error as e:
             print(f"ERROR fetching readings: {e}")
             return []
@@ -149,9 +154,10 @@ class Database:
                     ph_value, dissolved_oxygen, ec_value, tds_value, electrochemical_signal
                 ) VALUES (NOW(), ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """
-            self.cursor.execute(sql, values)
-            self.conn.commit()
-            return self.cursor.lastrowid
+            with self._lock:
+                self.cursor.execute(sql, values)
+                self.conn.commit()
+                return self.cursor.lastrowid
         except mariadb.Error as e:
             print(f"ERROR inserting project_reading: {e}")
             return None
@@ -161,19 +167,20 @@ class Database:
         if not self.is_connected():
             return []
         try:
-            self.cursor.execute(
-                """
-                SELECT * FROM project_readings
-                ORDER BY timestamp DESC, id DESC
-                LIMIT ?
-                """,
-                (limit,),
-            )
-            columns = [desc[0] for desc in self.cursor.description]
-            results = []
-            for row in self.cursor.fetchall():
-                results.append(_public_row_dict(columns, row))
-            return results
+            with self._lock:
+                self.cursor.execute(
+                    """
+                    SELECT * FROM project_readings
+                    ORDER BY timestamp DESC, id DESC
+                    LIMIT ?
+                    """,
+                    (limit,),
+                )
+                columns = [desc[0] for desc in self.cursor.description]
+                results = []
+                for row in self.cursor.fetchall():
+                    results.append(_public_row_dict(columns, row))
+                return results
         except mariadb.Error as e:
             print(f"ERROR fetching project_readings: {e}")
             return []
@@ -197,7 +204,7 @@ class Database:
                     WHERE plant_id = ?
                     GROUP BY plant_name
                 """
-                self.cursor.execute(query, (plant_id,))
+                params = (plant_id,)
             else:
                 query = """
                     SELECT 
@@ -210,13 +217,15 @@ class Database:
                     FROM project_readings
                     GROUP BY plant_name
                 """
-                self.cursor.execute(query)
+                params = ()
             
-            columns = [desc[0] for desc in self.cursor.description]
-            results = []
-            for row in self.cursor.fetchall():
-                results.append(_public_row_dict(columns, row))
-            return results
+            with self._lock:
+                self.cursor.execute(query, params)
+                columns = [desc[0] for desc in self.cursor.description]
+                results = []
+                for row in self.cursor.fetchall():
+                    results.append(_public_row_dict(columns, row))
+                return results
         except mariadb.Error as e:
             print(f"ERROR fetching statistics: {e}")
             return []
