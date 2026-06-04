@@ -24,7 +24,7 @@ DHT dht(DHT_PIN, DHT22);
 OneWire oneWire(DS18B20_PIN);
 DallasTemperature ds18b20(&oneWire);
 
-const unsigned long INTERVAL = 5000;
+const unsigned long INTERVAL = 1000;
 unsigned long lastTime = 0;
 
 bool adcConnected(int raw) {
