@@ -49,6 +49,7 @@ class Database:
                 port=int(os.getenv('DB_PORT', 3306)),
                 database=os.getenv('DB_NAME', 'hydroponics_db')
             )
+            self.conn.autocommit = True
             self.cursor = self.conn.cursor()
             print("Connected to MariaDB")
         except mariadb.Error as e:
@@ -128,6 +129,7 @@ class Database:
                 params = (limit,)
             
             with self._lock:
+                self.conn.commit()
                 self.cursor.execute(query, params)
                 columns = [desc[0] for desc in self.cursor.description]
                 results = []
@@ -168,6 +170,7 @@ class Database:
             return []
         try:
             with self._lock:
+                self.conn.commit()
                 self.cursor.execute(
                     """
                     SELECT * FROM project_readings
@@ -234,4 +237,3 @@ class Database:
         """Close database connection"""
         if self.conn:
             self.conn.close()
-
